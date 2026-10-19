@@ -1,130 +1,104 @@
 """
-DANS LA PEAU D'UNE REQUÊTE : sensibilisation à l'impact des IA génératives.
+LE VOYAGE D'UNE QUESTION : comprendre ce que consomme une IA, en 8 écrans.
 
 Installation :  python -m pip install dash plotly
 Lancement    :  python app.py   puis ouvrir http://127.0.0.1:8050
 
-RÈGLE DU PROJET : chaque chiffre porte un statut.
-  Mesuré  = publié par une mesure ou calculable exactement (ex. taille d'un texte)
-  Estimé  = ordre de grandeur, déclaration d'opérateur ou hypothèse pédagogique
-  Inconnu = donnée non publiée : on ne l'invente pas
-
-DONNÉES RÉELLES : déposez un fichier  data/ai_energy_score.csv  (colonnes :
-modele,tache,wh_pour_1000,source,statut) issu d'AI Energy Score / Compar:IA et la
-page « Comparer » l'affichera automatiquement.
+Principe : un seul chemin guidé, une idée par écran, des comparaisons du quotidien.
+Les chiffres sont des ORDRES DE GRANDEUR tirés d'études publiques (voir écran final).
 """
-import csv
-import math
-import os
-
 import plotly.graph_objects as go
 from dash import Dash, ctx, dcc, html, Input, Output, State
 
 # --------------------------------------------------------------------------- #
-# Données
+# Données (ordres de grandeur, sources citées à l'écran)
 # --------------------------------------------------------------------------- #
-GREEN, TEAL, AMBER, BLUE = "#5BE3A1", "#26C6DA", "#F2B53C", "#6C86B8"
-STATUS_COLOR = {"mesure": GREEN, "estime": AMBER, "inconnu": BLUE}
-STATUS_LABEL = {"mesure": "Mesuré", "estime": "Estimé", "inconnu": "Inconnu"}
-
-# Classes de modèles. Les Wh par 1000 tokens sont des HYPOTHÈSES PÉDAGOGIQUES
-# (proportionnelles à la taille), pas des mesures. "mult" = tokens cachés de raisonnement.
-MODELS = {
-    "petit": {"label": "Petit modèle ouvert (≈ 8 Md de paramètres, ex. Llama 3.1 8B)",
-              "short": "Petit (8 Md)", "params": 8e9, "wh1k": 0.05, "mult": 1},
-    "moyen": {"label": "Modèle moyen (≈ 70 Md de paramètres, ex. Llama 3.1 70B)",
-              "short": "Moyen (70 Md)", "params": 70e9, "wh1k": 0.2, "mult": 1},
-    "grand": {"label": "Très grand modèle (≈ 405 Md de paramètres, ex. Llama 3.1 405B)",
-              "short": "Très grand (405 Md)", "params": 405e9, "wh1k": 1.0, "mult": 1},
-    "raison": {"label": "Modèle de raisonnement (taille non publiée, calcul indicatif à 70 Md)",
-               "short": "Raisonnement", "params": 70e9, "wh1k": 0.2, "mult": 10},
+TASKS = {
+    "faute": {"label": "Corriger une faute dans un texte", "icon": "✏️", "wh": 0.05,
+              "last": "Un petit programme d'IA suffit : il réécrit votre texte, mot après mot.",
+              "src": "mesure moyenne sur de petits modèles (Luccioni et al., 2023-24)"},
+    "question": {"label": "Poser une question", "icon": "💬", "wh": 0.3,
+                 "last": "Le programme compose la réponse mot après mot. Chaque mot demande un calcul.",
+                 "src": "estimations de Google (0,24 Wh, 2025) et d'Epoch AI (≈ 0,3 Wh, 2025)"},
+    "image": {"label": "Créer une image", "icon": "🖼️", "wh": 3.0,
+              "last": "L'IA calcule des millions de points de couleur : bien plus de travail que pour du texte.",
+              "src": "mesure sur le modèle le plus gourmand testé (Luccioni et al., 2023-24)"},
+    "video": {"label": "Créer une vidéo de 5 secondes", "icon": "🎬", "wh": 944.0,
+              "last": "Une vidéo, ce sont des dizaines d'images à produire et à relier : le plus gros calcul de tous.",
+              "src": "mesure sur un modèle ouvert (MIT Technology Review, 2025)"},
 }
-CO2_G_PER_KWH = {"France": 50, "Monde": 450}  # ordres de grandeur, à actualiser (RTE éCO2mix)
 
-# Valeurs publiées (ordres de grandeur). Wh par requête ou par génération.
-REFERENCES = [
-    ("Texte (moyenne de petits modèles testés)", 0.047, "mesure", "Luccioni et al., 2023-24"),
-    ("Requête texte Gemini (médiane)", 0.24, "estime", "Google, 2025 (déclaré par l'opérateur)"),
-    ("Requête typique GPT-4o", 0.3, "estime", "Epoch AI, 2025 (estimation externe)"),
-    ("Image générée (modèle le plus coûteux testé)", 2.9, "mesure", "Luccioni et al., 2023-24"),
-    ("Vidéo de 5 s (modèle ouvert)", 944, "mesure", "MIT Technology Review, 2025"),
+PREDICTIONS = {
+    "Le chat dort sur le…": [("canapé", 35), ("lit", 25), ("tapis", 15), ("toit", 10), ("autre", 15)],
+    "Il fait beau, allons à la…": [("plage", 40), ("montagne", 20), ("campagne", 15), ("piscine", 15), ("autre", 10)],
+    "Pour faire un gâteau, il faut des…": [("œufs", 45), ("oeufs de poule", 5), ("pommes", 15), ("fraises", 10), ("autre", 25)],
+}
+
+SIZES = [  # (nom, image, poids relatif de conso — HYPOTHÈSE pédagogique)
+    ("Petit modèle", "🚲", 1, "pour les tâches simples"),
+    ("Modèle moyen", "🚗", 4, "pour les tâches courantes"),
+    ("Très gros modèle", "🚛", 20, "pour les tâches très difficiles"),
 ]
+DIFFICULTY = {
+    "simple": ("Simple : corriger, reformuler, classer", 0),
+    "moyen": ("Courante : résumer, écrire un mail, coder un petit script", 1),
+    "dur": ("Difficile : analyse longue, problème complexe", 2),
+}
 
-STAGES = [("💬", "Votre question"), ("📡", "Le réseau"), ("🏢", "Le centre de données"),
-          ("🧠", "Le calcul du modèle"), ("🖥️", "La réponse")]
-
-SOURCES = [
-    ("AI Energy Score", "https://huggingface.co/AIEnergyScore"),
-    ("Compar:IA", "https://comparia.beta.gouv.fr"),
-    ("IEA", "https://www.iea.org/reports/energy-and-ai"),
-    ("Eurostat", "https://ec.europa.eu/eurostat"),
-    ("RTE éCO2mix", "https://www.rte-france.com/eco2mix"),
-    ("ADEME", "https://www.ademe.fr"),
-]
+TITLES = ["Bienvenue", "C'est quoi une IA ?", "Pourquoi tout s'est accéléré", "Le voyage d'une question",
+          "Ce qu'il y a derrière", "Le bon outil pour la bonne tâche", "Et pour moi ?", "À retenir"]
+LAST = len(TITLES) - 1
 
 # --------------------------------------------------------------------------- #
-# Style
+# Style : clair, grand, très lisible
 # --------------------------------------------------------------------------- #
 CSS = """
-:root{--bg:#08162B;--panel:#0E2340;--panel2:#132C50;--green:#5BE3A1;--teal:#26C6DA;--amber:#F2B53C;
---blue:#6C86B8;--text:#E8F0FA;--mute:#9DB0CC;--line:#27406A}
+:root{--bg:#F3F6F8;--card:#fff;--ink:#10233A;--mute:#4A5D72;--teal:#0A7F78;--tealsoft:#D9F0EE;
+--amber:#F2A900;--ambersoft:#FFF1CC;--line:#D5DEE6}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font-family:"Segoe UI",system-ui,Helvetica,Arial,sans-serif;line-height:1.6}
-h1,h2,h3{margin:0 0 .5em;line-height:1.2} h1{font-size:2.5rem} h2{font-size:1.5rem} h3{font-size:1.1rem}
+html{font-size:18px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI",system-ui,Helvetica,Arial,sans-serif;line-height:1.65}
+h1{font-size:2.5rem;line-height:1.15;margin:0 0 .5em}h2{font-size:1.9rem;line-height:1.2;margin:0 0 .5em}h3{font-size:1.15rem;margin:0 0 .3em}
+p{margin:0 0 1em;max-width:62ch}
 a{color:var(--teal)}
-.shell{display:flex;min-height:100vh}
-.side{width:250px;flex:none;background:#061021;border-right:1px solid var(--line);padding:26px 16px;position:sticky;top:0;height:100vh}
-.brand{font-weight:700;font-size:1.15rem;text-align:center;margin-bottom:4px}
-.tag{font-size:.8rem;color:var(--teal);text-align:center;margin-bottom:26px}
-.side a.nav{display:block;color:var(--mute);text-decoration:none;padding:10px 14px;border-radius:10px;margin-bottom:6px}
-.side a.nav:hover,.side a.nav:focus-visible{color:#fff;background:var(--panel);outline:none}
-.side a.nav.on{color:#fff;background:#14403F;box-shadow:inset 3px 0 0 var(--green)}
-.tipbox{margin-top:26px;border:1px solid var(--line);border-radius:12px;padding:14px;font-size:.88rem;color:var(--mute)}
-.content{flex:1;min-width:0;padding:34px 44px 18px}
-.hero h1 span{color:var(--green)}
-.sub{font-size:1.15rem;color:var(--mute);max-width:60ch}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 24px;margin:16px 0}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
-.btn{display:inline-block;background:var(--green);color:#06281A;font-weight:700;border:0;border-radius:10px;
- padding:11px 20px;cursor:pointer;text-decoration:none;margin:6px 8px 6px 0;font-size:1rem}
-.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
-.btn:hover,.btn:focus-visible{filter:brightness(1.12);outline:2px solid var(--teal)}
-.badge{display:inline-block;border-radius:99px;padding:1px 10px;font-size:.78rem;font-weight:600;margin-left:8px}
-.badge.mesure{background:rgba(91,227,161,.18);color:var(--green)}
-.badge.estime{background:rgba(242,181,60,.18);color:var(--amber)}
-.badge.inconnu{background:rgba(108,134,184,.25);color:#B5C6E6}
-.srow{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
-.srow:last-child{border:0}.srow small{color:var(--mute);display:block}
-.tline{display:flex;margin:22px 0 8px}
-.node{flex:1;text-align:center;position:relative;min-width:0;padding:0 4px}
-.node .ico{font-size:1.8rem}
-.node .lab{display:inline-block;border:1px solid var(--line);border-radius:99px;padding:2px 10px;font-size:.82rem;margin:4px 0 10px}
-.dotrow{position:relative;height:28px}
-.node:not(:first-child) .dotrow::before{content:"";position:absolute;top:13px;left:-50%;width:100%;border-top:2px dashed var(--line)}
-.node.done:not(:first-child) .dotrow::before,.node.now:not(:first-child) .dotrow::before{border-top:2px dashed var(--green)}
-.dot{width:28px;height:28px;border-radius:50%;border:2px solid var(--blue);background:var(--bg);margin:0 auto;position:relative;z-index:1;font-size:.8rem;line-height:24px}
-.node.done .dot{border-color:var(--green);color:var(--green)}
-.node.now .dot{border-color:var(--green);box-shadow:0 0 0 5px rgba(91,227,161,.25)}
-.node.now .lab{border-color:var(--green);color:var(--green);font-weight:600}
-.flow{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}
-.flow div{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;flex:1;min-width:130px}
-.tl{border-left:3px solid var(--teal);padding-left:18px;margin:10px 0 10px 6px}
-.tl div{margin-bottom:12px}.tl b{color:var(--teal)}
-.big{font-size:2rem;font-weight:700;color:var(--green)}
-.note{font-size:.85rem;color:var(--mute)}
-.keep{background:#1B3F36;border:1px solid #2F7A62;border-radius:14px;padding:16px 20px}
-label{font-weight:600;display:block;margin:14px 0 6px}
-input[type=text]{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:1rem}
-.dash-dropdown,.Select-control,.Select-menu-outer,.Select-value-label{color:#111}
-.rc-slider-mark-text,.dash-slider-mark{color:var(--mute)!important}
-table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left}
-.foot{border-top:1px solid var(--line);margin-top:26px;padding-top:12px;font-size:.85rem;color:var(--mute)}
-.foot a{margin-right:12px}
-@media(max-width:860px){.shell{flex-direction:column}.side{width:100%;height:auto;position:static}
- .content{padding:20px 16px}h1{font-size:1.8rem}.node .lab{font-size:.7rem}}
+.top{max-width:900px;margin:0 auto;padding:22px 20px 0}
+.brand{font-weight:700;color:var(--teal)}
+.bar{display:flex;gap:6px;margin:10px 0 6px}
+.seg{height:7px;flex:1;border-radius:9px;background:var(--line)}
+.seg.done{background:var(--teal)}.seg.now{background:var(--amber)}
+.where{color:var(--mute);font-size:.95rem}
+.stage{max-width:900px;margin:14px auto;padding:0 20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:30px 34px;min-height:420px}
+.lead{font-size:1.25rem;max-width:56ch}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:18px 0}
+.box{background:var(--bg);border-radius:14px;padding:16px 18px}
+.box .em{font-size:2rem}
+.hl{background:var(--tealsoft);border-radius:14px;padding:16px 20px}
+.warn{background:var(--ambersoft);border-radius:14px;padding:16px 20px}
+.big{font-size:2.6rem;font-weight:700;color:var(--teal);line-height:1.1}
+.nav{max-width:900px;margin:0 auto 40px;padding:0 20px;display:flex;justify-content:space-between;gap:12px}
+.btn{font-size:1.1rem;font-weight:700;border-radius:12px;padding:14px 28px;cursor:pointer;border:2px solid var(--teal);
+ background:var(--teal);color:#fff}
+.btn.ghost{background:#fff;color:var(--teal)}
+.btn:hover{filter:brightness(1.1)}
+.btn:focus-visible,input:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+.choice{display:block;border:2px solid var(--line);border-radius:12px;padding:12px 16px;margin:8px 0;cursor:pointer;background:#fff}
+.choice:hover{border-color:var(--teal)}
+.choice input{margin-right:10px;transform:scale(1.3)}
+.path{border-left:4px solid var(--teal);margin:18px 0 18px 14px;padding-left:22px}
+.stop{margin-bottom:16px;position:relative}
+.stop::before{content:"";position:absolute;left:-31px;top:8px;width:14px;height:14px;border-radius:50%;background:var(--teal);border:3px solid #fff}
+.stop:last-child::before{background:var(--amber)}
+.bars div.row{display:flex;align-items:center;gap:10px;margin:8px 0}
+.bars .name{width:130px;flex:none}
+.bars .track{flex:1;background:var(--line);border-radius:8px;height:26px;overflow:hidden}
+.bars .fill{background:var(--teal);height:100%;color:#fff;padding-left:8px;font-size:.9rem;line-height:26px;white-space:nowrap}
+.small{font-size:.88rem;color:var(--mute)}
+.dash-slider-mark,.rc-slider-mark-text{color:var(--mute)!important;font-size:.85rem}
+@media(max-width:640px){html{font-size:16px}.card{padding:20px 18px}h1{font-size:2rem}.bars .name{width:90px}}
 """
 
-app = Dash(__name__, suppress_callback_exceptions=True, title="Dans la peau d'une requête")
+app = Dash(__name__, suppress_callback_exceptions=True, title="Le voyage d'une question")
 app.index_string = f"""<!DOCTYPE html><html lang="fr"><head>{{%metas%}}<title>{{%title%}}</title>
 {{%favicon%}}{{%css%}}<style>{CSS}</style></head><body>{{%app_entry%}}
 <footer>{{%config%}}{{%scripts%}}{{%renderer%}}</footer></body></html>"""
@@ -133,378 +107,250 @@ app.index_string = f"""<!DOCTYPE html><html lang="fr"><head>{{%metas%}}<title>{{
 # --------------------------------------------------------------------------- #
 # Utilitaires
 # --------------------------------------------------------------------------- #
-def fr(x, d=2):
-    """Nombre au format français."""
+def fr(x, d=1):
     return f"{x:,.{d}f}".replace(",", " ").replace(".", ",")
 
 
-def sci(x):
-    e = int(math.floor(math.log10(x)))
-    return f"{x / 10 ** e:.1f}".replace(".", ",") + " × 10" + str(e).translate(str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹"))
-
-
-def badge(kind):
-    return html.Span(STATUS_LABEL[kind], className=f"badge {kind}")
-
-
-def srow(title, kind, text):
-    return html.Div([html.Div([html.B(title), html.Small(text)]), badge(kind)], className="srow")
-
-
-def fig_style(fig, h=340):
-    fig.update_layout(height=h, margin=dict(l=10, r=10, t=44, b=10), paper_bgcolor="rgba(0,0,0,0)",
-                      plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#E8F0FA"))
-    fig.update_xaxes(gridcolor="#27406A")
-    fig.update_yaxes(gridcolor="#27406A")
-    return fig
-
-
-def energy_wh(model_key, words_out):
-    """Énergie estimée (Wh) pour une réponse : HYPOTHÈSE pédagogique, pas une mesure."""
-    m = MODELS[model_key]
-    return m["wh1k"] * (words_out * 1.35) / 1000 * m["mult"]
-
-
-def next_link(href, label):
-    return html.Div(dcc.Link(f"Suite : {label}", href=href, className="btn"), style={"marginTop": "22px"})
-
-
-def load_real_data(path=os.path.join("data", "ai_energy_score.csv")):
-    if not os.path.exists(path):
-        return None
-    with open(path, encoding="utf-8", newline="") as fh:
-        return list(csv.DictReader(fh))
-
-
-# --------------------------------------------------------------------------- #
-# Page 1 : Comprendre l'IA
-# --------------------------------------------------------------------------- #
-def page_comprendre():
-    return html.Div([
-        html.Div([html.H1(["Une requête. Un voyage. ", html.Span("Des ressources.")]),
-                  html.P("Suivez le parcours d'une question, de votre écran aux serveurs, puis jusqu'à la réponse.",
-                         className="sub"),
-                  dcc.Link("Devenir une requête", href="/voyage", className="btn")], className="hero"),
-        html.H2("Qu'est-ce que l'IA ?"),
-        html.Div([
-            html.Div([html.H3("IA à règles"), html.P("Un humain écrit chaque règle. Fiable mais rigide.")], className="panel"),
-            html.Div([html.H3("Apprentissage automatique"),
-                      html.P("Le programme trouve les règles à partir d'exemples (filtre anti-spam).")], className="panel"),
-            html.Div([html.H3("IA générative"),
-                      html.P("Un grand modèle apprend la structure du langage ou des images, puis crée du contenu.")],
-                     className="panel"),
-        ], className="grid"),
-        html.Div([html.H3("L'idée clé"),
-                  html.P("Un modèle de langage prédit le prochain morceau de mot (un token), encore et encore. "
-                         "Chaque prédiction exige des milliards de multiplications sur des puces spécialisées : "
-                         "c'est la source de la consommation d'énergie.")], className="panel"),
-        html.H2("Comment tout a explosé"),
-        html.Div([
-            html.Div([html.B("1956 "), "Le terme « intelligence artificielle » naît à Dartmouth."]),
-            html.Div([html.B("2012 "), "AlexNet prouve la puissance du deep learning sur GPU."]),
-            html.Div([html.B("2017 "), "L'architecture Transformer (Google) devient la base des modèles actuels."]),
-            html.Div([html.B("2020 "), "GPT-3 : 175 milliards de paramètres, preuve que « plus grand » ouvre de nouvelles capacités."]),
-            html.Div([html.B("2022 "), "ChatGPT rend l'IA générative grand public."]),
-            html.Div([html.B("2024-25 "), "Modèles de raisonnement, multimodaux, agents : meilleurs, mais souvent plus gourmands."]),
-        ], className="tl"),
-        next_link("/voyage", "le voyage d'une requête"),
-    ])
-
-
-# --------------------------------------------------------------------------- #
-# Page 2 : Le voyage d'une requête (immersif)
-# --------------------------------------------------------------------------- #
-def page_voyage():
-    return html.Div([
-        html.H1("Le voyage d'une requête"),
-        html.P("Écrivez votre question, choisissez un modèle, puis avancez étape par étape : vous êtes la requête.",
-               className="sub"),
-        html.Div([
-            html.Label("Votre question", htmlFor="q-text"),
-            dcc.Input(id="q-text", type="text", value="Explique-moi la photosynthèse", debounce=False),
-            html.Div([
-                html.Div([html.Label("Modèle utilisé"),
-                          dcc.Dropdown(id="q-model", options=[{"label": v["label"], "value": k} for k, v in MODELS.items()],
-                                       value="moyen", clearable=False)]),
-                html.Div([html.Label("Longueur de la réponse"),
-                          dcc.Dropdown(id="q-len", options=[{"label": "Courte (≈ 100 mots)", "value": 100},
-                                                            {"label": "Moyenne (≈ 400 mots)", "value": 400},
-                                                            {"label": "Longue (≈ 1 000 mots)", "value": 1000}],
-                                       value=400, clearable=False)]),
-            ], className="grid"),
-            html.Div([html.Button("▶ Lancer le voyage", id="btn-start", className="btn"),
-                      html.Button("◀ Étape précédente", id="btn-prev", className="btn ghost"),
-                      html.Button("Étape suivante ▶", id="btn-next", className="btn")], style={"marginTop": "14px"}),
-        ], className="panel"),
-        html.Div(id="journey-line"),
-        html.Div(id="journey-detail"),
-    ])
-
-
-@app.callback(Output("step", "data"), Input("btn-start", "n_clicks"), Input("btn-next", "n_clicks"),
-              Input("btn-prev", "n_clicks"), State("step", "data"), prevent_initial_call=True)
-def move(_s, _n, _p, step):
-    t = ctx.triggered_id
-    if t == "btn-start":
-        return 0
-    if t == "btn-next":
-        return min((step if step is not None else -1) + 1, 5)
-    return max((step if step is not None else 0) - 1, 0)
-
-
-def timeline(step):
-    nodes = []
-    for i, (ico, lab) in enumerate(STAGES):
-        cls = "done" if step > i else "now" if step == i else "todo"
-        nodes.append(html.Div([html.Div(ico, className="ico"), html.Div(lab, className="lab"),
-                               html.Div(html.Div("✓" if cls == "done" else str(i + 1), className="dot"),
-                                        className="dotrow")], className=f"node {cls}"))
-    return html.Div(nodes, className="tline")
-
-
-@app.callback(Output("journey-line", "children"), Output("journey-detail", "children"),
-              Input("step", "data"), Input("q-text", "value"), Input("q-model", "value"), Input("q-len", "value"))
-def render_journey(step, text, model_key, words_out):
-    step = -1 if step is None else step
-    text = (text or "").strip() or "Explique-moi la photosynthèse"
-    m = MODELS[model_key]
-    tok_in = max(1, round(len(text.split()) * 1.35))
-    tok_out = round(words_out * 1.35)
-    gen = tok_out * m["mult"]
-    flops = 2 * m["params"] * (tok_in + gen)
-    wh = energy_wh(model_key, words_out)
-
-    if step < 0:
-        return timeline(-1), html.Div(html.P("Cliquez sur « Lancer le voyage » : votre question devient une requête."),
-                                      className="panel")
-
-    if step == 0:
-        body = [html.H2(["1. Votre question", badge("mesure")]),
-                html.P(f"« {text} »"),
-                html.P(f"Taille du texte : {len(text.encode('utf-8'))} octets, soit environ {tok_in} tokens "
-                       "(estimation : un token vaut en moyenne 0,75 mot). C'est minuscule : l'envoi de la question "
-                       "ne coûte presque rien. Le coût vient de ce qui se passe ensuite.")]
-    elif step == 1:
-        body = [html.H2(["2. Le réseau", badge("inconnu")]),
-                html.P("Votre question est chiffrée (HTTPS), part de votre box, traverse les réseaux de l'opérateur "
-                       "et des points d'échange, puis arrive chez le fournisseur du service, en quelques dizaines "
-                       "de millisecondes."),
-                html.P("Part du réseau dans l'énergie totale d'une requête : rarement mesurée de façon séparée. "
-                       "Nous ne donnons donc pas de chiffre.", className="note")]
-    elif step == 2:
-        body = [html.H2(["3. Le centre de données", badge("estime")]),
-                html.P("Un répartiteur de charge choisit un serveur équipé de GPU disponible. Le bâtiment consomme "
-                       "de l'électricité pour les serveurs, mais aussi pour le refroidissement et la distribution."),
-                html.P("Cet « surcoût » se mesure avec le PUE (Power Usage Effectiveness) : un PUE de 1,2 signifie "
-                       "20 % d'énergie en plus de celle des serveurs. Selon les sites, on rencontre des valeurs "
-                       "d'environ 1,1 (grands acteurs) à 1,6 (moyenne du secteur selon Uptime Institute).",
-                       className="note")]
-    elif step == 3:
-        body = [html.H2(["4. Le calcul du modèle", badge("estime")]),
-                html.P(m["label"]),
-                html.Div([html.Div([html.Div(sci(flops), className="big"),
-                                    html.P("opérations à virgule flottante (règle approchée : 2 × paramètres × tokens). "
-                                           "Estimation de calcul, pas une mesure d'énergie.")], className="panel"),
-                          html.Div([html.Div(f"{gen} tokens", className="big"),
-                                    html.P("générés" + (" (dont une grande part de « réflexion » cachée, ×10 supposé)"
-                                                        if m["mult"] > 1 else ", un par un, chacun relançant le calcul."))],
-                                   className="panel")], className="grid")]
-    elif step == 4:
-        body = [html.H2(["5. La réponse", badge("estime")]),
-                html.P(f"≈ {words_out} mots reviennent sur votre écran, soit {tok_out} tokens visibles."),
-                html.Div([html.Div([html.Div(f"≈ {fr(wh)} Wh", className="big"),
-                                    html.P(f"énergie estimée (fourchette plausible : {fr(wh / 3)} à {fr(wh * 3)} Wh). "
-                                           "Hypothèse pédagogique, voir « Comparer » pour les valeurs publiées.")],
-                                   className="panel"),
-                          html.Div([html.Div(f"{fr(wh * 6, 1)} min", className="big"),
-                                    html.P("d'ampoule LED de 10 W allumée pour la même énergie.")], className="panel"),
-                          html.Div([html.Div(f"{fr(wh / 1000 * CO2_G_PER_KWH['France'], 3)} g CO₂", className="big"),
-                                    html.P(f"avec un mix électrique français (≈ {CO2_G_PER_KWH['France']} g/kWh) ; "
-                                           f"≈ {fr(wh / 1000 * CO2_G_PER_KWH['Monde'], 3)} g avec le mix mondial.")],
-                                   className="panel")], className="grid"),
-                html.P(["Eau consommée par le refroidissement : ", badge("inconnu"),
-                        " peu d'acteurs la publient par requête."], className="note")]
+def equivalents(wh):
+    """Traduit des Wh en comparaisons du quotidien (LED 10 W ; téléphone ≈ 15 Wh)."""
+    sec = wh / 10 * 3600
+    if sec < 90:
+        led = f"{sec:.0f} secondes"
+    elif sec < 7200:
+        led = f"{sec / 60:.0f} minutes"
     else:
-        names = [v["short"] for v in MODELS.values()]
-        vals = [energy_wh(k, words_out) for k in MODELS]
-        fig = go.Figure(go.Bar(x=names, y=vals, text=[f"{fr(v)} Wh" for v in vals], textposition="outside",
-                               marker_color=[GREEN if k == model_key else "#4C6590" for k in MODELS]))
-        fig.update_layout(title="Votre requête, quatre choix de modèle (estimation, hypothèse pédagogique)")
-        fig.update_yaxes(title="Wh", range=[0, max(vals) * 1.25])
-        body = [html.H2("Bilan du voyage"),
-                html.P("Votre requête a mobilisé un réseau, un bâtiment rempli de GPU, du refroidissement et de "
-                       "l'électricité. Le choix du modèle et la longueur de la réponse sont les deux leviers "
-                       "que vous contrôlez."),
-                dcc.Graph(figure=fig_style(fig, 330), config={"displayModeBar": False}),
-                html.Div([html.B("À retenir : "), "si un petit modèle suffit, c'est le choix le plus sobre. "
-                          "Le mode raisonnement se garde pour les problèmes qui le méritent."], className="keep"),
-                dcc.Link("Voir les ressources derrière le voyage", href="/ressources", className="btn")]
-    return timeline(step), html.Div(body, className="panel")
+        led = f"{sec / 3600:.0f} heures"
+    out = [f"une ampoule LED allumée pendant {led}"]
+    if wh >= 15:
+        out.append(f"{wh / 15:.0f} recharges complètes d'un téléphone")
+    return out
+
+
+def box(emoji, title, text):
+    return html.Div([html.Div(emoji, className="em"), html.H3(title), html.P(text, style={"margin": 0})], className="box")
 
 
 # --------------------------------------------------------------------------- #
-# Page 3 : Les ressources
+# Les 8 écrans
 # --------------------------------------------------------------------------- #
-def page_ressources():
-    fig = go.Figure(go.Bar(x=["2024", "2030 (projection)"], y=[415, 945], marker_color=[TEAL, AMBER],
-                           text=["≈ 415 TWh", "≈ 945 TWh"], textposition="outside"))
-    fig.update_layout(title="Électricité des data centers dans le monde (IEA, tous usages)")
-    fig.update_yaxes(title="TWh par an", range=[0, 1100])
+def s0():
     return html.Div([
-        html.H1("Les ressources derrière l'écran"),
-        html.P("L'IA paraît immatérielle, mais repose sur des bâtiments, des puces, de l'électricité et de l'eau.",
-               className="sub"),
-        html.Div([html.Div("Requête"), html.Div("Réseau"), html.Div("Serveurs GPU"),
-                  html.Div("Refroidissement"), html.Div("Électricité + eau")], className="flow"),
-        html.Div([html.H2("Ce qu'on peut mesurer"),
-                  srow("Énergie des GPU", "mesure", "Les puces exposent leur puissance : un laboratoire peut la mesurer pour un modèle donné."),
-                  srow("Émissions de CO₂", "estime", "Elles dépendent du mix électrique du lieu et de l'heure : on les estime."),
-                  srow("Eau de refroidissement", "inconnu",
-                       "Google a déclaré environ 0,26 mL par requête médiane en 2025 ; la plupart des acteurs ne publient rien."),
-                  srow("Fabrication des puces et serveurs", "inconnu", "Impact réel, rarement ventilé par requête.")],
-                 className="panel"),
-        dcc.Graph(figure=fig_style(fig, 340), config={"displayModeBar": False}),
-        html.P("Les data centers pèsent environ 1,5 % de l'électricité mondiale en 2024 selon l'IEA, "
-               "avec une croissance tirée par l'IA.", className="note"),
-        next_link("/comparer", "comparer les modèles"),
+        html.H1("Que se passe-t-il quand vous posez une question à une IA ?"),
+        html.P("En 8 petits écrans (environ 5 minutes), vous allez suivre le voyage d'une question, "
+               "de votre écran jusqu'à la réponse, et comprendre ce que cela consomme.", className="lead"),
+        html.Div([html.B("Aucune connaissance nécessaire. "),
+                  "Chaque écran explique une seule idée. Utilisez les boutons en bas pour avancer."], className="hl"),
     ])
 
 
-# --------------------------------------------------------------------------- #
-# Page 4 : Comparer les modèles
-# --------------------------------------------------------------------------- #
-def page_comparer():
-    fig = go.Figure(go.Bar(
-        y=[r[0] for r in REFERENCES], x=[r[1] for r in REFERENCES], orientation="h",
-        marker_color=[STATUS_COLOR[r[2]] for r in REFERENCES],
-        text=[f"{fr(r[1], 3 if r[1] < 1 else 1)} Wh" for r in REFERENCES], textposition="outside",
-        customdata=[[STATUS_LABEL[r[2]], r[3]] for r in REFERENCES],
-        hovertemplate="%{y}<br>%{x} Wh<br>%{customdata[0]} : %{customdata[1]}<extra></extra>"))
-    fig.update_xaxes(type="log", title="Wh par génération (échelle logarithmique)", range=[-2, 3.8])
-    fig.update_layout(title="Valeurs publiées : énergie par génération (vert = mesuré, orange = estimé)")
-    rows = load_real_data()
-    if rows:
-        table = html.Table([html.Thead(html.Tr([html.Th(c) for c in ("Modèle", "Tâche", "Wh / 1000", "Statut", "Source")])),
-                            html.Tbody([html.Tr([html.Td(r.get(k, "")) for k in
-                                                 ("modele", "tache", "wh_pour_1000", "statut", "source")]) for r in rows])])
-        real = html.Div([html.H3("Vos données réelles (data/ai_energy_score.csv)"), table], className="panel")
-    else:
-        real = html.Div([html.H3(["Données par modèle", badge("inconnu")]),
-                         html.P("Aucun fichier data/ai_energy_score.csv trouvé. Téléchargez les résultats d'AI Energy Score "
-                                "ou de Compar:IA, ajoutez-les en CSV (modele, tache, wh_pour_1000, source, statut) : "
-                                "ils s'afficheront ici, sans modifier le code. Nous n'inventons pas de mesure par modèle.")],
-                        className="panel")
+def s1():
     return html.Div([
-        html.H1("Comparer les modèles"),
-        dcc.Graph(figure=fig_style(fig, 380), config={"displayModeBar": False}),
-        html.P("Ces valeurs viennent de protocoles différents : elles donnent des ordres de grandeur, pas un classement.",
-               className="note"),
-        real,
-        html.Div([
-            html.H2("Explorez un scénario"),
-            html.Div([
-                html.Div([
-                    html.Label("1. Longueur de réponse (mots)"),
-                    dcc.Slider(id="sc-words", min=50, max=1500, step=50, value=500,
-                               marks={50: "50", 500: "500", 1000: "1000", 1500: "1500"}),
-                    html.Label("Nombre de requêtes par mois"),
-                    dcc.Slider(id="sc-req", min=10, max=5000, step=10, value=1000,
-                               marks={10: "10", 1000: "1 000", 3000: "3 000", 5000: "5 000"}),
-                    html.Label("2. Choisissez un modèle"),
-                    dcc.Dropdown(id="sc-model", options=[{"label": v["label"], "value": k} for k, v in MODELS.items()],
-                                 value="moyen", clearable=False),
-                    html.Button("▶ Lancer la simulation", id="sc-go", className="btn", style={"marginTop": "14px"}),
-                ]),
-                html.Div(id="sc-out"),
-            ], className="grid"),
-            html.P("Simulation fondée sur des hypothèses pédagogiques proportionnelles à la taille du modèle.",
-                   className="note"),
-        ], className="panel"),
-        next_link("/agir", "agir autrement"),
+        html.H2("Une IA, c'est un programme qui devine la suite"),
+        html.P("Une IA comme ChatGPT a « lu » énormément de textes. Quand vous lui écrivez, elle ne réfléchit pas "
+               "comme nous : elle devine, mot après mot, quel mot a le plus de chances de venir ensuite.", className="lead"),
+        html.Label("Essayez : choisissez un début de phrase", htmlFor="pred-in", style={"fontWeight": 700}),
+        dcc.RadioItems(id="pred-in", options=list(PREDICTIONS), value="Le chat dort sur le…", labelClassName="choice"),
+        html.Div(id="pred-out"),
+        html.P("Exemple pédagogique : les pourcentages sont inventés pour illustrer, pas mesurés.", className="small"),
     ])
 
 
-@app.callback(Output("sc-out", "children"), Input("sc-go", "n_clicks"), State("sc-words", "value"),
-              State("sc-req", "value"), State("sc-model", "value"))
-def scenario(_n, words, req, model_key):
-    wh = energy_wh(model_key, words)
-    kwh_month = wh * req / 1000
-    names = [v["short"] for v in MODELS.values()]
-    vals = [energy_wh(k, words) * req / 1000 for k in MODELS]
-    fig = go.Figure(go.Bar(x=names, y=vals, text=[f"{fr(v)} kWh" for v in vals], textposition="outside",
-                           marker_color=[GREEN if k == model_key else "#4C6590" for k in MODELS]))
-    fig.update_layout(title="kWh par mois, selon le modèle")
-    fig.update_yaxes(range=[0, max(vals) * 1.3])
+@app.callback(Output("pred-out", "children"), Input("pred-in", "value"))
+def pred(value):
+    rows = [html.Div([html.Div(w, className="name"),
+                      html.Div(html.Div(f"{p} %", className="fill", style={"width": f"{p * 2}%"}), className="track")],
+                     className="row") for w, p in PREDICTIONS[value]]
+    return html.Div([html.P("L'IA classe les mots possibles par probabilité, puis en choisit un :"),
+                     html.Div(rows, className="bars")])
+
+
+def s2():
     return html.Div([
-        html.P([html.B(f"≈ {fr(wh)} Wh"), " par requête ; ", html.B(f"{fr(kwh_month)} kWh"), " par mois ; ",
-                html.B(f"{fr(kwh_month * 12)} kWh"), " par an."]),
-        html.P(f"CO₂ par an : ≈ {fr(kwh_month * 12 * CO2_G_PER_KWH['France'], 0)} g (mix français) à "
-               f"{fr(kwh_month * 12 * CO2_G_PER_KWH['Monde'], 0)} g (mix mondial)."),
-        dcc.Graph(figure=fig_style(fig, 260), config={"displayModeBar": False}),
+        html.H2("Pourquoi tout s'est accéléré"),
+        html.P("Les IA existent depuis les années 1950. Elles sont devenues très puissantes quand trois choses "
+               "se sont réunies :", className="lead"),
+        html.Div([box("📚", "Beaucoup de textes", "Internet, livres, articles : de quoi apprendre à écrire."),
+                  box("⚡", "Des puces très rapides", "Des processeurs (les GPU) capables de faire des milliards de calculs à la seconde."),
+                  box("💡", "Une bonne idée (2017)", "Une nouvelle façon de construire ces programmes, appelée « Transformer ».")],
+                 className="grid"),
+        html.Div([html.B("2022 : ChatGPT. "), "En environ deux mois, il a dépassé 100 millions d'utilisateurs. "
+                  "Depuis, les modèles grossissent : entre 2018 et 2020, le nombre de « réglages internes » du "
+                  "modèle d'OpenAI est passé d'environ 117 millions à 175 milliards, soit 1 500 fois plus."], className="hl"),
     ])
 
 
-# --------------------------------------------------------------------------- #
-# Page 5 : Agir autrement
-# --------------------------------------------------------------------------- #
-def page_agir():
+def s3():
     return html.Div([
-        html.H1("Agir autrement"),
-        html.P("Sans culpabiliser : quelques choix suffisent à réduire l'impact d'un usage.", className="sub"),
-        html.Div([
-            html.Div([html.H3("Le plus petit modèle suffisant"),
-                      html.P("Correction, reformulation, extraction : un petit modèle fait très bien l'affaire.")], className="panel"),
-            html.Div([html.H3("Un prompt précis"),
-                      html.P("Moins d'allers-retours, donc moins de calculs.")], className="panel"),
-            html.Div([html.H3("Une réponse courte"),
-                      html.P("« En 5 lignes » : l'énergie suit la longueur générée.")], className="panel"),
-            html.Div([html.H3("Le raisonnement à bon escient"),
-                      html.P("Réservez-le aux problèmes difficiles, il génère beaucoup de tokens cachés.")], className="panel"),
-            html.Div([html.H3("Sans IA quand elle suffit"),
-                      html.P("Une calculatrice, un dictionnaire ou une recherche classique suffisent parfois.")], className="panel"),
-            html.Div([html.H3("Ne pas générer en double"),
-                      html.P("Images et vidéos coûtent beaucoup plus que le texte : évitez les essais inutiles.")], className="panel"),
-        ], className="grid"),
-        html.Div([html.H2("Ce que l'on ne sait pas encore"),
-                  srow("Énergie d'un modèle propriétaire précis", "inconnu", "Rarement publiée par les éditeurs."),
-                  srow("Eau et fabrication par requête", "inconnu", "Peu de données comparables."),
-                  srow("Valeurs par type de tâche", "estime", "Disponibles pour certains modèles ouverts (AI Energy Score).")],
-                 className="panel"),
-        html.Div([html.B("À retenir : "), "l'IA générative mobilise des ressources réelles. En choisissant un modèle "
-                  "adapté à votre besoin et en limitant les requêtes inutiles, vous réduisez son impact."], className="keep"),
+        html.H2("Le voyage d'une question"),
+        html.P("Choisissez ce que vous demandez à l'IA. Vous allez voir où va votre demande, et ce que cela consomme.",
+               className="lead"),
+        dcc.RadioItems(id="task", options=[{"label": f"{t['icon']}  {t['label']}", "value": k} for k, t in TASKS.items()],
+                       value="question", labelClassName="choice"),
+        html.Div(id="voyage-out"),
     ])
 
 
-# --------------------------------------------------------------------------- #
-# Layout global et routage
-# --------------------------------------------------------------------------- #
-PAGES = [("/", "🏠  Comprendre l'IA", page_comprendre), ("/voyage", "🔀  Le voyage d'une requête", page_voyage),
-         ("/ressources", "🗄️  Les ressources", page_ressources), ("/comparer", "⚖️  Comparer les modèles", page_comparer),
-         ("/agir", "🌿  Agir autrement", page_agir)]
+@app.callback(Output("voyage-out", "children"), Input("task", "value"))
+def voyage(key):
+    t = TASKS[key]
+    stops = [("💻 Votre écran", "Vous écrivez votre demande."),
+             ("🌐 Internet", "Elle voyage jusqu'à un centre de données, un grand bâtiment rempli d'ordinateurs."),
+             ("🏢 Le centre de données", "Des puces spécialisées se mettent au travail, avec de l'électricité."),
+             ("✨ La réponse", t["last"])]
+    eq = equivalents(t["wh"])
+    return html.Div([
+        html.Div([html.Div([html.H3(a), html.P(b, style={"margin": 0})], className="stop") for a, b in stops], className="path"),
+        html.Div([html.Div(f"≈ {fr(t['wh'], 2 if t['wh'] < 1 else 1)} Wh", className="big"),
+                  html.P("C'est l'énergie électrique d'environ : " + " ; ".join(eq) + "."),
+                  html.P(f"Source : {t['src']}. Ordre de grandeur.", className="small", style={"margin": 0})], className="warn"),
+    ])
 
+
+def s4():
+    return html.Div([
+        html.H2("Ce qu'il y a derrière : les centres de données"),
+        html.P("Votre question n'est pas traitée par votre téléphone, mais par un centre de données, parfois à des "
+               "milliers de kilomètres. C'est un immense entrepôt d'ordinateurs qui fonctionnent jour et nuit.",
+               className="lead"),
+        html.Div([box("🔌", "De l'électricité", "Pour faire tourner les puces."),
+                  box("❄️", "Du refroidissement", "Les puces chauffent beaucoup : il faut les refroidir, avec de l'air ou de l'eau."),
+                  box("🧱", "Du matériel à fabriquer", "Puces, serveurs, bâtiments : leur fabrication a aussi un coût.")],
+                 className="grid"),
+        html.Div([html.Div("≈ 1,5 %", className="big"),
+                  html.P("de l'électricité mondiale passe dans les centres de données (Agence internationale de "
+                         "l'énergie, 2024). Cette part pourrait plus que doubler d'ici 2030, en partie à cause de l'IA.",
+                         style={"margin": 0})], className="warn"),
+        html.P("Ce qu'on ne sait pas bien : la quantité d'eau utilisée. Peu d'entreprises la publient.",
+               className="small", style={"marginTop": "14px"}),
+    ])
+
+
+def s5():
+    return html.Div([
+        html.H2("Le bon outil pour la bonne tâche"),
+        html.P("Il existe des IA de tailles différentes. Pour se déplacer, on ne prend pas un camion pour aller "
+               "chercher du pain : c'est pareil ici.", className="lead"),
+        html.Label("Votre demande est…", htmlFor="diff", style={"fontWeight": 700}),
+        dcc.RadioItems(id="diff", options=[{"label": v[0], "value": k} for k, v in DIFFICULTY.items()],
+                       value="simple", labelClassName="choice"),
+        html.Div(id="diff-out"),
+    ])
+
+
+@app.callback(Output("diff-out", "children"), Input("diff", "value"))
+def diff(key):
+    best = DIFFICULTY[key][1]
+    cards = []
+    for i, (name, ico, rel, use) in enumerate(SIZES):
+        style = {"border": "3px solid #0A7F78"} if i == best else {}
+        cards.append(html.Div([html.Div(ico, className="em"), html.H3(name), html.P(use, style={"margin": 0}),
+                               html.P(f"Consomme environ ×{rel}", className="small", style={"margin": 0}),
+                               html.B("✔ Le plus adapté", style={"color": "#0A7F78"}) if i == best else ""],
+                              className="box", style=style))
+    saving = SIZES[2][2] // SIZES[best][2]
+    msg = ("Ici, un petit modèle suffit : prendre le plus gros consommerait environ 20 fois plus pour le même résultat."
+           if best == 0 else "Prendre le modèle adapté plutôt que le plus gros évite un gaspillage inutile."
+           if best == 1 else "Pour une tâche difficile, un gros modèle peut se justifier. Gardez-le pour ces cas-là.")
+    return html.Div([html.Div(cards, className="grid"), html.P(msg, className="lead"),
+                     html.P("Les « ×1, ×4, ×20 » sont une hypothèse pédagogique (la consommation grandit avec la taille du "
+                            "modèle). Les « modèles de raisonnement », qui réfléchissent longuement avant de répondre, "
+                            "peuvent consommer encore plus : environ 10 fois.", className="small")])
+
+
+def s6():
+    return html.Div([
+        html.H2("Et pour moi ?"),
+        html.P("Réglez votre usage, vous verrez ce que cela représente sur une année.", className="lead"),
+        html.Label("Questions écrites par jour"),
+        dcc.Slider(id="u-txt", min=0, max=100, step=5, value=20, marks={0: "0", 50: "50", 100: "100"}),
+        html.Label("Images créées par semaine"),
+        dcc.Slider(id="u-img", min=0, max=50, step=1, value=2, marks={0: "0", 25: "25", 50: "50"}),
+        html.Label("Vidéos créées par mois"),
+        dcc.Slider(id="u-vid", min=0, max=10, step=1, value=0, marks={0: "0", 5: "5", 10: "10"}),
+        html.Div(id="usage-out", style={"marginTop": "22px"}),
+    ])
+
+
+@app.callback(Output("usage-out", "children"), Input("u-txt", "value"), Input("u-img", "value"), Input("u-vid", "value"))
+def usage(txt, img, vid):
+    parts = {"Textes": TASKS["question"]["wh"] * txt * 365 / 1000,
+             "Images": TASKS["image"]["wh"] * img * 52 / 1000,
+             "Vidéos": TASKS["video"]["wh"] * vid * 12 / 1000}
+    total = sum(parts.values())
+    if total == 0:
+        return html.Div("Ajoutez un usage avec les curseurs.", className="hl")
+    top = max(parts, key=parts.get)
+    fig = go.Figure(go.Bar(x=list(parts), y=list(parts.values()), text=[f"{fr(v, 2)} kWh" for v in parts.values()],
+                           textposition="outside", marker_color=["#0A7F78" if k == top else "#9FB6C3" for k in parts]))
+    fig.update_layout(height=260, margin=dict(l=10, r=10, t=10, b=10), yaxis_title="kWh par an",
+                      paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", yaxis_range=[0, max(parts.values()) * 1.3])
+    return html.Div([
+        html.Div([html.Div(f"≈ {fr(total, 1)} kWh par an", className="big"),
+                  html.P(f"soit environ {fr(total / 1, 0)} lavages en machine (≈ 1 kWh chacun). "
+                         f"Le poste qui pèse le plus : {top.lower()}.", style={"margin": 0})], className="warn"),
+        dcc.Graph(figure=fig, config={"displayModeBar": False}),
+        html.P("Le texte pèse peu : ce sont surtout les images et les vidéos qui comptent. Ordres de grandeur, "
+               "calculés avec les valeurs de l'écran 4.", className="small"),
+    ])
+
+
+def s7():
+    return html.Div([
+        html.H2("À retenir"),
+        html.Div([box("🧠", "Chaque réponse a un coût", "Même invisible, elle mobilise des ordinateurs, de l'électricité et du refroidissement."),
+                  box("🎯", "Le bon modèle", "Prenez le plus petit qui fait bien le travail."),
+                  box("🎬", "Images et vidéos", "Elles pèsent bien plus que le texte : évitez les essais inutiles.")],
+                 className="grid"),
+        html.Div([html.B("Ce que l'on ne sait pas encore : "),
+                  "la consommation exacte de chaque modèle commercial, l'eau utilisée et l'impact de la fabrication. "
+                  "Les chiffres de ce site sont des ordres de grandeur, pas des mesures exactes."], className="warn"),
+        html.P(["Sources : Luccioni et al. (2023-24), Google (2025), Epoch AI (2025), MIT Technology Review (2025), "
+                "Agence internationale de l'énergie (2024). Pour aller plus loin : ",
+                html.A("AI Energy Score", href="https://huggingface.co/AIEnergyScore", target="_blank", rel="noopener"),
+                " et ", html.A("Compar:IA", href="https://comparia.beta.gouv.fr", target="_blank", rel="noopener"), "."],
+               className="small", style={"marginTop": "14px"}),
+    ])
+
+
+SCREENS = [s0, s1, s2, s3, s4, s5, s6, s7]
+
+# --------------------------------------------------------------------------- #
+# Mise en page et navigation
+# --------------------------------------------------------------------------- #
 app.layout = html.Div([
-    dcc.Location(id="url"),
-    dcc.Store(id="step", data=-1),
-    html.Div([
-        html.Nav([html.Div("DANS LA PEAU D'UNE REQUÊTE", className="brand"),
-                  html.Div("Comprendre • Explorer • Agir", className="tag"),
-                  html.Div(id="menu"),
-                  html.Div("💡 Une IA plus sobre, c'est possible. En comprenant son impact, on peut faire des choix "
-                           "plus responsables.", className="tipbox")], className="side"),
-        html.Main([html.Div(id="page"),
-                   html.Div([html.Div(["Nos sources : "] + [html.A(n, href=u, target="_blank", rel="noopener") for n, u in SOURCES]),
-                             html.Div("Les chiffres sont indicatifs et dépendent des sources et des méthodologies. "
-                                      "Statuts : Mesuré, Estimé, Inconnu.")], className="foot")], className="content"),
-    ], className="shell"),
+    dcc.Store(id="step", data=0),
+    html.Div([html.Div("Le voyage d'une question", className="brand"), html.Div(id="progress")], className="top"),
+    html.Main(html.Div(id="screen", className="card"), className="stage"),
+    html.Div([html.Button("← Précédent", id="btn-prev", className="btn ghost"),
+              html.Div([html.Button("Suivant →", id="btn-next", className="btn"),
+                        html.Button("↺ Recommencer", id="btn-restart", className="btn ghost",
+                                    style={"display": "none"})])], className="nav"),
 ])
 
 
-@app.callback(Output("page", "children"), Output("menu", "children"), Input("url", "pathname"))
-def router(path):
-    path = path or "/"
-    builder = next((b for p, _, b in PAGES if p == path), page_comprendre)
-    menu = [dcc.Link(lab, href=p, className="nav on" if p == path else "nav") for p, lab, _ in PAGES]
-    return builder(), menu
+@app.callback(Output("step", "data"), Input("btn-prev", "n_clicks"), Input("btn-next", "n_clicks"),
+              Input("btn-restart", "n_clicks"), State("step", "data"), prevent_initial_call=True)
+def move(_p, _n, _r, step):
+    t = ctx.triggered_id
+    if t == "btn-restart":
+        return 0
+    if t == "btn-next":
+        return min(step + 1, LAST)
+    return max(step - 1, 0)
+
+
+@app.callback(Output("screen", "children"), Output("progress", "children"), Output("btn-prev", "style"),
+              Output("btn-next", "style"), Output("btn-next", "children"), Output("btn-restart", "style"),
+              Input("step", "data"))
+def render(step):
+    segs = [html.Div(className="seg done" if i < step else "seg now" if i == step else "seg") for i in range(len(SCREENS))]
+    progress = [html.Div(segs, className="bar"),
+                html.Div(f"Étape {step + 1} sur {len(SCREENS)} : {TITLES[step]}", className="where")]
+    label = "Commencer le voyage →" if step == 0 else "Suivant →"
+    return (SCREENS[step](), progress,
+            {"visibility": "hidden"} if step == 0 else {},
+            {"display": "none"} if step == LAST else {}, label,
+            {} if step == LAST else {"display": "none"})
 
 
 if __name__ == "__main__":
