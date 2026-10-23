@@ -20,7 +20,7 @@ Les références [1] à [4] sont les mêmes que dans l'application (`REFS` dans 
 | KPI « ×4 » | Demande des datacenters optimisés IA : « plus que quadruple » d'ici 2030 | [1] | Projection, pas une mesure. |
 | Graphique en anneau (15 %) | Serveurs IA = 15 % de l'énergie totale des datacenters en 2024 (24 % de l'énergie des serveurs) | [2] | Les 85 % restants sont le complément calculé. |
 | KPI « ×38 » (CO₂) | 0,03 g CO₂e par requête médiane Gemini [3] ; 1,14 g CO₂e par réponse de 400 tokens (Le Chat) [4] | [3], [4] | **Calcul maison** : 1,14 ÷ 0,03 = 38. Périmètres différents (voir ci-dessous) : à lire comme un ordre de grandeur de l'écart entre déclarations, pas comme un écart réel entre deux modèles. |
-| KPI « ×170 » (eau) | 0,26 mL par requête médiane Gemini [3] ; 45 mL par réponse de 400 tokens [4] | [3], [4] | **Calcul maison** : 45 ÷ 0,26 ≈ 173, arrondi à ×170 dans le texte. Même réserve de périmètre. |
+| KPI « ×173 » (eau) | 0,26 mL par requête médiane Gemini [3] ; 45 mL par réponse de 400 tokens [4] | [3], [4] | **Calcul maison** : 45 ÷ 0,26 ≈ 173 (affiché « ×173 »). Même réserve de périmètre. |
 
 ## Pourquoi les chiffres [3] et [4] ne sont pas comparables
 
