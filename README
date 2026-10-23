@@ -1,1 +1,643 @@
+Il s’agit d’une application web développée avec Python, Dash, Plotly, HTML généré en Python, CSS 
+et JavaScript. Elle présente les enjeux environnementaux de l’IA générative au travers de six onglets.
 
+
+Le code va être expliqué en trois niveaux :
+- Vue d’ensemble : comment les différentes parties du programme s’articulent.
+- Analyse bloc par bloc : rôle du code, fonctions principales, paramètres et mécanismes importants.
+- Pistes d’apprentissage : notions à retenir, exemples de modifications et points de vigilance.
+
+############################################################################################################
+# 1. Comprendre l’architecture générale
+############################################################################################################
+A. Configuration et données
+Imports · Navigation · Sources · Chiffres · Couleurs
+B. Fonctions de construction
+Icônes SVG · Graphiques Plotly · Cartes · En-tête · Pagination
+C. Pages de l’application
+Page d’accueil · Contenu de la page 1 · Pages d’attente
+D. Présentation et interactions
+Dash · CSS · JavaScript · Navigation · Barre de progression
+E. Exécution
+Démarrage du serveur
+
+L’idée centrale est que nous écrivons pas directement du HTML pour chaque élément de la page, 
+Nous utilisons principalement Python pour décrire les éléments HTML, Dash pour les afficher, 
+CSS pour les mettre en forme et JavaScript pour certaines interactions dans le navigateur.
+
+############################################################################################################
+# 2. Analyse de chaque bloc de code
+############################################################################################################
+Bloc 0 - Les imports et les bibliothèques
+import base64, os, threading, webbrowser
+from dash import Dash, html, dcc, Input, Output, callback
+import plotly.graph_objects as go
+
+
+Rôle : charger les outils dont le programme a besoin. Import : À quoi sert-il ?
+
+base64 : Encoder le code SVG des icônes pour l’intégrer dans une URL d’image.
+os : Lire les variables d’environnement du système.
+threading : Programmer une action dans un fil d’exécution séparé, ici l’ouverture du navigateur.
+webbrowser : Ouvrir automatiquement l’application dans le navigateur.
+Dash : Créer l’application web.
+html : Construire des éléments de type HTML avec Python.
+dcc : Utiliser les composants interactifs fournis par Dash, comme les liens, les graphiques et la gestion de l’URL.
+Input, Output, callback : Relier les changements d’un composant au résultat produit par une fonction Python.
+plotly.graph_objects as go : Construire des graphiques interactifs. go est un alias pour éviter d’écrire le nom complet.
+
+Notion à retenir : un import rend des fonctionnalités disponibles ; il ne lance pas à lui seul une action.
+Par exemple, import webbrowser ne lance pas de navigateur. C’est l’appel ultérieur à webbrowser.open(URL) qui le fera.
+
+
+Bloc 1 — La navigation
+Rôle : centraliser la liste des six pages du site.
+
+Chaque élément est un tuple, c’est-à-dire un groupe ordonné de valeurs. Ici :
+- La première valeur est le chemin de l’URL.
+- La seconde est le libellé visible dans la navigation.
+Par exemple, ("/", "Comprendre") associe la racine du site à l’onglet « Comprendre ».
+
+Cette liste est réutilisée dans plusieurs fonctions : header() pour les liens de navigation, pager() pour les boutons précédent/suivant et route() pour déterminer la page à afficher.
+
+Pourquoi c’est utile ?
+Si nous ajoutons une page à NAV, les fonctions qui parcourent cette liste peuvent la prendre en compte automatiquement. Nous évitons ainsi de recopier les mêmes noms et chemins à plusieurs endroits.
+Notion à retenir : une constante de configuration centralisée facilite la maintenance du code.
+
+
+Bloc 2 — Les sources, les chiffres et la palette
+A. Le dictionnaire REFS
+Un dictionnaire Python associe une clé à une valeur. Ici, le numéro de référence — 1, 2, etc. — permet de retrouver le nom d’une source et son URL.
+La fonction sources_block() exploite ce dictionnaire pour construire automatiquement une liste de liens en bas de la page.
+
+B. Les constantes numériques
+DC_2024_TWH = 415DC_2030_TWH = 945CO2_GOOGLE_G = 0.03CO2_MISTRAL_G = 1.14WATER_GOOGLE_ML = 0.26WATER_MISTRAL_ML = 45
+Ces variables stockent des valeurs trouvées dans les sources pour les réutiliser dans l’application.
+Les unités sont essentielles pour comprendre ces valeurs : TWH correspond aux térawattheures, G aux grammes et ML aux millilitres.
+
+C. La palette de couleurs
+dict() crée un dictionnaire. La notation C["couleur_choisie"] permet ensuite de récupérer la couleur associée à la clé couleur_choisie.
+Cette palette est utilisée dans les graphiques et dans les icônes, et ses valeurs servent également à générer des variables CSS.
+Notion à retenir : séparer les données et le style de leur utilisation dans les pages permet de modifier plus facilement l’apparence ou les chiffres.
+
+D. La fonction de formatage fr()
+Cette fonction formate un nombre selon une présentation adaptée au français.
+- x : le nombre à afficher.
+- d=2 : le nombre de décimales, fixé à deux par défaut.
+- f"{x:,.{d}f}" : construit une chaîne avec un nombre de décimales défini par d et un séparateur de milliers.
+- .replace(",", " ") : remplace les virgules de séparation des milliers par des espaces fines.
+- .replace(".", ",") : transforme le point décimal en virgule.
+Exemple :
+fr(12345.678)# '12 345,68'
+
+
+Bloc 3 — Les icônes SVG et le logo
+C’est un bloc particulièrement intéressant si nous souhaitons personnaliser l’identité graphique de notre application.
+A. La fonction svg_uri()
+Rôle : fabriquer une image SVG et la convertir en URL intégrable directement dans une balise image.
+Les paramètres :
+- inner : le contenu graphique du SVG, par exemple un cercle ou un tracé.
+- view : la zone de coordonnées du dessin.
+- stroke : la couleur du contour.
+- width : l’épaisseur du trait.
+La fonction assemble le contenu dans une balise <svg>, puis effectue trois opérations :
+1. svg.encode() transforme le texte en octets.
+2. base64.b64encode(...) encode ces octets en Base64.
+3. .decode() convertit le résultat encodé en chaîne de caractères.
+Le préfixe data:image/svg+xml;base64, indique au navigateur qu’il s’agit d’une image SVG encodée.
+Ainsi, html.Img(src=LOGO) peut afficher le logo sans avoir besoin d’un fichier SVG séparé.
+
+B. Le dictionnaire ICON
+ICON = {    "user": svg_uri('<circle cx="12" cy="8" r="4"/>'),    "chip": svg_uri('<rect x="6" y="6" width="12" height="12" rx="2"/>'),    "spark": svg_uri('<path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/>'),}
+
+
+
+Il associe un nom à chaque icône :
+- user : représentation d’une personne ;
+- chip : représentation d’une puce électronique ;
+- spark : représentation d’un éclat ou d’une étoile.
+Les formes SVG utilisent des primitives comme <circle>, <rect> et <path>.
+
+Quelques attributs à connaître :
+Attribut	Signification
+cx, cy	Coordonnées du centre d’un cercle.
+r	Rayon du cercle.
+x, y	Position d’un rectangle.
+width, height	Largeur et hauteur.
+d	Instructions de tracé d’un chemin SVG.
+
+C. Le logo LOGO
+Le logo reprend la même logique, mais son contenu SVG est plus complexe : un cercle extérieur, deux contours de cerveau, des circuits et des nœuds.
+
+Le résultat est stocké dans la variable LOGO, puis utilisé dans l’en-tête :
+html.Img(src=LOGO, className="logo")
+
+
+
+Point de vigilance : dans la version du fichier, le logo emploie currentColor dans son SVG encodé. Comme l’image est affichée via une balise img, cette couleur n’hérite pas nécessairement de la couleur CSS du texte environnant. Pour obtenir une couleur garantie, il est préférable d’utiliser une couleur explicite, comme #3f7d4e.
+
+Bloc 4 — Les graphiques avec Plotly
+A. La fonction style()
+def style(fig, h=340):    fig.update_layout(        height=h,        paper_bgcolor="rgba(0,0,0,0)",        plot_bgcolor="rgba(0,0,0,0)",        font=dict(color=C["text"], family="Outfit, Segoe UI, sans-serif"),        margin=dict(l=50, r=20, t=60, b=50),    )    fig.update_xaxes(gridcolor="rgba(0,0,0,0.08)", zeroline=False)    fig.update_yaxes(gridcolor="rgba(0,0,0,0.08)", zeroline=False)    return fig
+
+
+
+Cette fonction applique un style commun aux graphiques.
+- fig : le graphique à modifier.
+- h=340 : la hauteur par défaut.
+- update_layout() : règle la mise en page générale.
+- paper_bgcolor : couleur de fond de la figure entière.
+- plot_bgcolor : couleur de fond de la zone de tracé.
+- font : définit la typographie.
+- margin : règle les marges.
+- update_xaxes() et update_yaxes() : configurent les axes.
+- return fig : renvoie le graphique modifié.
+Le fond transparent permet au graphique de s’intégrer visuellement au fond de la page.
+
+Le return est important : il permet d’écrire return style(fig) dans une fonction qui fabrique un graphique.
+B. La fonction fig_dc_demand()
+def fig_dc_demand():    fig = go.Figure(go.Bar(        x=["2024", "2030 (projection IEA)"],        y=[DC_2024_TWH, DC_2030_TWH],        marker_color=[C["accent"], C["warn"]],        text=[f"{DC_2024_TWH} TWh", f"{DC_2030_TWH} TWh"],        textposition="outside"    ))    fig.update_yaxes(range=[0, 1100], title="TWh par an")    fig.update_layout(title="Électricité des datacenters dans le monde [5]")    return style(fig)
+
+
+
+Cette fonction crée un graphique en barres comparant les valeurs de 2024 et la projection de 2030.
+
+Voici les notions à retenir :
+- go.Figure(...) crée une figure Plotly.
+- go.Bar(...) décrit une série de barres.
+- x contient les catégories de l’axe horizontal.
+- y contient les valeurs numériques.
+- marker_color définit la couleur des barres.
+- text ajoute les valeurs au-dessus des barres.
+- textposition="outside" place les étiquettes à l’extérieur des barres.
+- update_yaxes() fixe l’échelle verticale et son titre.
+- update_layout() donne un titre au graphique.
+Enfin, style(fig) harmonise son apparence avec le reste du site.
+
+Le graphique est ensuite intégré à la page grâce à :
+dcc.Graph(    figure=fig_dc_demand(),    config={"displayModeBar": False})
+
+
+
+dcc.Graph est le composant Dash qui affiche le graphique. Le paramètre displayModeBar=False masque la barre d’outils habituelle de Plotly.
+
+À comprendre : les données et le style du graphique sont définis dans des fonctions Python ; Dash se charge de le présenter dans l’interface.
+
+Bloc 5 — Les composants réutilisables
+C’est l’un des blocs les plus importants pour apprendre à structurer une application.
+
+Au lieu de reconstruire les mêmes éléments HTML à chaque apparition, tu crées des fonctions qui les réutilisent.
+A. eyebrow()
+def eyebrow(num, label):    return html.Div([        html.Span(className="eb-line"),        html.Span(num, className="eb-num"),        html.Span(label, className="eb-label")    ], className="eyebrow")
+
+
+
+Cette fonction construit un petit élément de titre composé d’une ligne décorative, d’un numéro et d’un libellé.
+
+Les classes CSS définissent ensuite l’apparence de chacun de ces éléments.
+B. kpi()
+def kpi(value, label, note):    return html.Div([        html.Div(value, className="kpi-v"),        html.Div(label, className="kpi-l"),        html.Div(note, className="kpi-s")    ], className="kpi")
+
+
+
+KPI signifie Key Performance Indicator, ou indicateur clé.
+
+La fonction construit un bloc comprenant :
+- la valeur principale ;
+- le texte explicatif ;
+- une note complémentaire.
+Elle est utilisée pour afficher les statistiques comme les taux d’adoption de l’IA ou la consommation électrique des datacenters.
+C. card()
+def card(title, body, tag=None):    kids = [html.Span(tag, className="tag")] if tag else []    kids += [html.H4(title), html.P(body)]    return html.Div(kids, className="card")
+
+
+
+Cette fonction crée une carte avec un titre et un texte, et éventuellement un badge.
+
+La ligne :
+kids = [html.Span(tag, className="tag")] if tag else []
+
+
+
+est une expression conditionnelle : si tag existe, on crée un élément HTML pour le badge ; sinon, on démarre avec une liste vide.
+
+Puis :
+kids += [html.H4(title), html.P(body)]
+
+
+
+ajoute le titre et le paragraphe à la liste.
+
+C’est un bon exemple de composition : les composants HTML sont assemblés dans une liste avant d’être placés dans un conteneur.
+D. callout()
+def callout(text, kind="info"):    return html.Div(text, className=f"callout {kind}")
+
+
+
+Cette fonction affiche un encadré de mise en évidence.
+
+La chaîne f"callout {kind}" est une f-string : elle insère la valeur de kind dans le texte.
+
+Par exemple, callout("Attention", "warn") produira un élément avec les classes callout warn, ce qui permet au CSS de lui donner une apparence particulière.
+E. sources_block()
+def sources_block():    items = [        html.Li([            f"[{n}] ",            html.A(label, href=url, target="_blank", rel="noopener")        ])        for n, (label, url) in REFS.items()    ]    ...
+
+
+
+Cette fonction transforme le dictionnaire REFS en une liste HTML de références.
+
+La partie :
+for n, (label, url) in REFS.items()
+
+
+
+parcourt les éléments du dictionnaire et décompose chaque valeur en label et url.
+
+La syntaxe utilisée est une compréhension de liste : elle permet de construire une liste en une seule expression.
+
+html.A(...) crée un lien ; href=url définit sa destination et target="_blank" demande au navigateur de l’ouvrir dans un nouvel onglet. rel="noopener" renforce la sécurité de ce mode d’ouverture.
+F. pager()
+def pager(i):    left = (        dcc.Link("← " + NAV[i - 1][1],                 href=NAV[i - 1][0], className="btn ghost")        if i > 0 else html.Span()    )    ...
+
+
+
+Cette fonction crée les liens vers les pages précédente et suivante.
+- i est l’indice de la page actuelle.
+- NAV[i - 1] désigne la page précédente.
+- NAV[i + 1] désigne la page suivante.
+- if i > 0 évite de créer un lien précédent sur la première page.
+- i < len(NAV) - 1 évite de créer un lien suivant sur la dernière page.
+len(NAV) renvoie le nombre d’éléments dans la liste, soit six.
+
+Le résultat est un composant html.Div qui contient les deux liens.
+G. header()
+def header(idx):    links = [        dcc.Link(            label,            href=href,            className="navlink active" if i == idx else "navlink"        )        for i, (href, label) in enumerate(NAV)    ]    ...
+
+
+
+Cette fonction construit l’en-tête du site.
+
+enumerate(NAV) parcourt la liste tout en fournissant un indice i pour chaque élément. Cet indice permet de savoir si le lien correspond à la page actuelle.
+
+Si i == idx, le lien reçoit la classe navlink active, qui permet au CSS de mettre en évidence l’onglet sélectionné.
+
+L’en-tête contient ensuite le logo, le nom du projet, les liens de navigation, le numéro de page et l’élément qui sert de base à la barre de progression.
+
+Notion à retenir : les fonctions kpi(), card(), callout(), pager() et header() sont des composants réutilisables. Tu peux modifier leur structure une seule fois pour faire évoluer leur rendu partout dans l’application.
+
+Bloc 6 — La construction des pages
+A. hero()
+La fonction hero() construit la partie d’introduction de la page d’accueil.
+
+Elle commence par définir trois étapes :
+steps = [    ("user", "Votre question", "Une consigne est envoyée", False),    ("chip", "Le modèle traite", "Des calculs sont effectués", True),    ("spark", "Une réponse", "Le résultat est renvoyé", False)]
+
+
+
+Chaque tuple contient :
+1. le nom d’une icône ;
+2. un titre ;
+3. une description ;
+4. un booléen qui indique si l’étape doit être mise en évidence.
+La boucle :
+for i, (ic, title, desc, on) in enumerate(steps):
+
+
+
+parcourt chaque étape.
+
+Si i est supérieur à zéro, une flèche est ajoutée entre les éléments. Chaque étape est ensuite construite à partir de l’icône, du titre et de la description.
+
+La classe fstep on est utilisée pour l’étape mise en évidence ; les autres reçoivent fstep.
+
+Le résultat présente visuellement le parcours simplifié d’une requête adressée à une IA générative.
+B. page_1()
+C’est la fonction qui contient l’essentiel du contenu pédagogique actuel.
+
+Elle assemble plusieurs sections :
+- définition de l’IA générative ;
+- chiffres sur son adoption ;
+- présentation de différents types de modèles ;
+- impact matériel et électrique ;
+- objectifs du parcours ;
+- références bibliographiques ;
+- navigation vers les autres pages.
+La variable body contient une grande structure composée de composants html.Div, html.H2, html.P et des fonctions réutilisables définies plus tôt.
+
+Par exemple :
+kpi("48%", "des Français...", "Enquête Arcep/CREDOC...")
+
+
+
+crée un indicateur sans devoir recopier le HTML de sa structure.
+
+À la fin :
+return html.Div([hero(), body], className="page")
+
+
+
+la fonction assemble l’introduction et le corps de la page dans un conteneur commun.
+C. placeholder(i)
+def placeholder(i):    name = NAV[i][1]    return html.Div(...)
+
+
+
+Cette fonction produit une page d’attente à partir de l’indice de la page.
+
+Elle récupère le nom de l’onglet dans NAV, affiche son titre et précise que la page sera construite ultérieurement.
+
+C’est ce qui permet aux cinq autres onglets d’exister et d’être accessibles, même si leur contenu pédagogique n’est pas encore rédigé.
+
+Bloc 7 — La création de l’application Dash
+app = Dash(    __name__,    title="Dans la peau d'une requête",    external_stylesheets=[        "https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700"        "&family=JetBrains+Mono:wght@500&display=swap"    ])server = app.server
+
+
+
+Dash(...) crée l’application.
+- __name__ permet à Dash d’identifier le module Python courant.
+- title définit le titre de l’application.
+- external_stylesheets permet de charger des ressources CSS externes, ici des polices Google Fonts.
+server = app.server expose le serveur Flask sous-jacent de Dash. C’est utile notamment pour certains déploiements sur des plateformes web.
+A. ROOT : transmettre les couleurs au CSS
+ROOT = ":root{" + ";".join(f"--{k}:{v}" for k, v in C.items()) + "}"
+
+
+
+Cette ligne transforme le dictionnaire C en variables CSS.
+
+Par exemple, une entrée telle que ("bg", "#f1e8d6") devient :
+--bg:#f1e8d6
+
+
+Le résultat complet prend la forme :
+:root{--bg:#f1e8d6;--card:#faf5e9;...}
+
+
+Dans le CSS, tu peux alors écrire :
+body {
+    background: var(--bg);
+}
+
+
+Cela relie la configuration Python aux règles de présentation CSS.
+B. CSS : la mise en forme
+La variable CSS contient les règles qui déterminent l’apparence de l’application.
+
+Les principales familles de règles sont :
+Partie	Fonction
+body, a, .g	Typographie, couleurs et style global.
+.hd, .navlink, .brand	En-tête, logo et navigation.
+.wrap, .page, .hero	Structure et dimensions des pages.
+.flow, .fstep, .ficon	Schéma du parcours d’une requête.
+.sec, .kpi, .card	Sections, indicateurs et cartes.
+.callout, .sources, .pager	Encadrés, sources et pagination.
+@media (max-width:900px)	Adaptation aux écrans plus petits.
+
+Quelques notions CSS importantes :
+- display: flex organise les éléments sur un axe, avec des possibilités d’alignement et de répartition.
+- display: grid organise les éléments dans une grille de lignes et de colonnes.
+- gap règle l’espacement entre les éléments.
+- position: sticky permet à l’en-tête de rester visible pendant le défilement.
+- :hover applique un style lorsque le pointeur survole un élément.
+- @media permet d’adapter les règles selon les caractéristiques de l’écran.
+La règle @media (max-width:900px) change notamment la structure de la zone d’introduction sur les petits écrans.
+C. JS : la barre de progression
+Le JavaScript prend le relais pour calculer la progression dans le parcours.
+function update() {
+    var bar = document.getElementById('progress');
+    if (!bar) return;
+
+    var idx = parseInt(bar.dataset.idx || '1', 10);
+    var total = parseInt(bar.dataset.total || '6', 10);
+
+    var h = document.documentElement.scrollHeight - window.innerHeight;
+    var frac = h > 0
+        ? Math.min(1, Math.max(0, window.scrollY / h))
+        : 0;
+
+    bar.style.width = Math.max(((idx - 1) + frac) / total * 100, 2) + '%';
+}
+
+
+Voici le raisonnement :
+1. Le script recherche l’élément HTML portant l’identifiant progress.
+2. S’il ne le trouve pas, return arrête immédiatement la fonction.
+3. dataset.idx et dataset.total récupèrent les attributs data-idx et data-total de cet élément.
+4. parseInt(..., 10) convertit ces valeurs en nombres entiers.
+5. scrollHeight - innerHeight calcule la hauteur totale qui peut être parcourue.
+6. scrollY / h mesure la proportion du défilement sur la page.
+7. Math.min() et Math.max() limitent cette proportion entre 0 et 1.
+8. Le script combine la position de la page actuelle dans le parcours avec le défilement réalisé, puis ajuste la largeur de la barre.
+La formule utilise le numéro de page pour que la progression avance d’un onglet à l’autre, tout en tenant compte du défilement à l’intérieur de chaque page.
+
+Les événements suivants déclenchent la mise à jour :
+window.addEventListener('scroll', update, {passive:true});
+window.addEventListener('resize', update);
+
+
+- scroll : lorsque l’utilisateur fait défiler la page.
+- resize : lorsque la taille de la fenêtre change.
+- {passive:true} : indique au navigateur que le gestionnaire de défilement ne demande pas à bloquer le défilement par un appel à preventDefault().
+Le MutationObserver surveille les changements dans le document HTML et relance update() lorsque des éléments sont ajoutés ou supprimés.
+
+Enfin :
+window.__updateProgress = update;
+
+
+expose la fonction sur window, ce qui permet à une autre partie du code JavaScript de la rappeler.
+
+Notion à retenir : Python construit la page, CSS la met en forme et JavaScript gère ici une interaction qui dépend du défilement du navigateur.
+
+Bloc 8 — L’assemblage du document HTML
+app.index_string = (    "<!DOCTYPE html>\n<html lang=\"fr\"><head>{%metas%}<title>{%title%}</title>{%favicon%}{%css%}"    "<style>" + ROOT + CSS + "</style></head>\n"    "<body>{%app_entry%}<footer>{%config%}{%scripts%}{%renderer%}</footer>"    "<script>" + JS + "</script></body></html>")
+
+
+
+app.index_string permet de personnaliser le document HTML de base que Dash envoie au navigateur.
+
+Les marqueurs spéciaux comme {%metas%}, {%title%}, {%css%} ou {%app_entry%} sont des emplacements que Dash remplit automatiquement.
+
+Le programme y insère également les variables CSS, les règles de style et le JavaScript.
+
+La ligne :
+<html lang="fr">
+
+
+
+indique que la langue principale du document est le français.
+
+Cette personnalisation est utile lorsque tu veux contrôler la structure générale du document, plutôt que de laisser Dash utiliser entièrement son modèle HTML par défaut.
+
+Bloc 9 — La structure principale et le routage
+A. app.layout
+app.layout = html.Div([    dcc.Location(id="url", refresh=False),    html.Div(id="header"),    html.Div(id="page"),    html.Div(id="scroll-dummy", style={"display": "none"}),])
+
+
+
+Le layout est la structure principale de l’application Dash.
+
+Il contient quatre éléments :
+- dcc.Location suit l’URL actuelle.
+- html.Div(id="header") recevra l’en-tête.
+- html.Div(id="page") recevra le contenu de la page.
+- html.Div(id="scroll-dummy") est un élément caché utilisé comme sortie d’un callback côté client.
+Le paramètre refresh=False permet à Dash de gérer la navigation sans recharger entièrement le document à chaque changement de chemin.
+B. Le callback côté client
+app.clientside_callback(    "function(p){window.scrollTo(0,0);"    "setTimeout(function(){if(window.__updateProgress){window.__updateProgress();}},60);return '';}",    Output("scroll-dummy", "children"),    Input("url", "pathname"))
+
+
+
+Un callback est une fonction déclenchée par un changement d’entrée et qui produit un résultat.
+
+Ici, il s’exécute côté navigateur, en JavaScript, plutôt que dans Python.
+- Input("url", "pathname") : l’entrée est le chemin de l’URL.
+- window.scrollTo(0,0) : remet le défilement en haut de page.
+- setTimeout(...,60) : attend environ 60 millisecondes avant de mettre à jour la progression.
+- Output("scroll-dummy", "children") : reçoit le résultat de la fonction.
+L’argument p correspond à la nouvelle valeur du chemin, mais il n’est pas utilisé dans le corps du script.
+C. Le callback Python route()
+@callback(    Output("header", "children"),    Output("page", "children"),    Input("url", "pathname"))def route(pathname):    hrefs = [h for h, _ in NAV]    idx = hrefs.index(pathname) if pathname in hrefs else 0    return header(idx), (page_1() if idx == 0 else placeholder(idx))
+
+
+
+C’est le mécanisme central de navigation.
+1. pathname reçoit le chemin actuel de l’URL.
+2. La compréhension de liste hrefs = [h for h, _ in NAV] extrait tous les chemins de navigation.
+3. Si le chemin demandé existe, index() retrouve son indice ; sinon, le programme revient à l’indice 0.
+4. header(idx) construit l’en-tête avec le bon onglet actif.
+5. Si l’indice vaut zéro, page_1() produit la page « Comprendre » ; sinon, placeholder(idx) produit une page d’attente.
+Le return renvoie deux valeurs, correspondant aux deux sorties déclarées : le contenu de header et celui de page.
+
+Notion à retenir : le routage relie l’URL à la fonction qui doit construire le contenu affiché.
+
+Bloc 10 — Le lancement de l’application
+if __name__ == "__main__":    URL = "http://127.0.0.1:8050"    if os.environ.get("WERKZEUG_RUN_MAIN") != "true":        threading.Timer(1.5, lambda: webbrowser.open(URL)).start()    app.run(debug=True, port=8050)
+
+
+
+Cette partie s’exécute lorsque tu lances directement le fichier Python.
+if __name__ == "__main__":
+C’est une condition classique en Python.
+
+Elle permet de distinguer le cas où le fichier est exécuté directement du cas où il est importé par un autre module.
+os.environ.get(...)
+Cette expression lit une variable d’environnement.
+
+Le code vérifie WERKZEUG_RUN_MAIN pour éviter que le navigateur ne soit ouvert à nouveau lors de certains redémarrages liés au mode debug.
+threading.Timer(...)
+Le minuteur programme l’ouverture du navigateur après un délai de 1,5 seconde.
+
+lambda: webbrowser.open(URL) crée une petite fonction qui appelle webbrowser.open(URL) lorsqu’elle est exécutée.
+
+L’appel à .start() démarre le minuteur.
+app.run(...)
+C’est l’appel qui démarre le serveur de développement Dash.
+- port=8050 définit le port utilisé.
+- debug=True active les outils de débogage et le rechargement automatique pendant le développement.
+Le serveur est ensuite accessible à l’adresse locale http://127.0.0.1:8050.
+
+Pour une application déployée en production, il faudra revoir la configuration du serveur et désactiver le mode debug.
+
+3. Les concepts Python à maîtriser en priorité
+Voici les notions qui te permettront de comprendre la majorité du fichier sans avoir à apprendre chaque ligne par cœur.
+
+1. Les fonctions
+
+def, paramètres, valeurs par défaut, return. Elles encapsulent une tâche pour pouvoir la réutiliser.
+
+Exemples : card(), kpi(), fig_dc_demand().
+
+
+
+
+2. Les listes, tuples et dictionnaires
+
+Ils servent à regrouper les données, parcourir les pages et associer des clés à des valeurs.
+
+Exemples : NAV, REFS, C, ICON.
+
+
+
+
+3. Les boucles et compréhensions
+
+Elles permettent de générer automatiquement des composants plutôt que de les répéter manuellement.
+
+Exemples : for ... in enumerate(steps) et [...] for ... in NAV.
+
+
+
+
+4. Les conditions
+
+Elles permettent de choisir un comportement en fonction d’une valeur.
+
+Exemples : if tag, if i > 0, if idx == 0.
+
+
+
+
+5. Les callbacks Dash
+
+Ils relient les changements d’un composant aux éléments de l’interface à actualiser.
+
+Exemple : route() réagit au changement de url.pathname.
+
+
+
+
+6. La séparation des responsabilités
+
+Python définit les données et la structure, CSS définit l’apparence, JavaScript gère certaines interactions dans le navigateur.
+
+
+
+4. Quelques points à surveiller dans le code actuel
+L’objectif n’est pas de tout modifier immédiatement, mais de repérer les détails importants pour la suite.
+- Le logo SVG : comme indiqué plus haut, currentColor dans une image SVG intégrée par data URI ne garantit pas que le logo reprenne la couleur du texte. Une couleur explicite évite cette ambiguïté.
+- La barre de progression : la fonction JavaScript limite la progression à 100 %, mais le calcul suppose que chaque onglet représente une fraction comparable du parcours. C’est un choix de conception, pas une mesure du contenu réellement terminé.
+- Les pages d’attente : placeholder() est utile pour construire la navigation avant d’avoir terminé le contenu. Il faudra remplacer progressivement ces pages par de vraies fonctions, comme page_1().
+- Les chiffres et les sources : les constantes numériques et le dictionnaire REFS facilitent le suivi des données, mais il faut conserver une traçabilité précise entre chaque chiffre affiché et sa source.
+- Le mode debug : debug=True est pratique en développement, mais doit être désactivé pour un déploiement en production.
+- La fonction fr() : elle est prête à être utilisée pour les valeurs du calculateur, mais n’est pas encore appelée dans le code fourni.
+5. Dans quel ordre apprendre et modifier le projet ?
+Je te conseille cet ordre, du plus accessible au plus technique.
+Parcours d’apprentissage
+0 / 6
+
+
+
+[ ] 1. Comprendre les fonctions Python
+
+Modifier les textes de card(), kpi() et callout() ; identifier les paramètres et les valeurs renvoyées.
+
+
+[ ] 2. Personnaliser le contenu
+
+Modifier les textes de page_1() et les données de NAV ou REFS sans casser la structure.
+
+
+[ ] 3. Comprendre le rendu visuel
+
+Modifier une classe CSS comme .card ou .kpi, puis observer le résultat dans le navigateur.
+
+
+[ ] 4. Créer un graphique
+
+Modifier fig_dc_demand() et tester les axes, les valeurs, les couleurs et les étiquettes.
+
+
+[ ] 5. Ajouter une nouvelle page
+
+Créer une fonction page_2(), puis adapter route() pour l'afficher lorsque son URL est sélectionnée.
+
+
+[ ] 6. Comprendre les interactions
+
+Étudier les callbacks Dash et le JavaScript de la barre de progression.
+
+
+
+Mon conseil : ne commence pas par apprendre toutes les bibliothèques en profondeur. Apprends d’abord à suivre le chemin d’une donnée dans ton application : une valeur est définie dans Python, transmise à une fonction, transformée en composant Dash, puis stylisée en CSS et affichée dans le navigateur.
+
+C’est cette compréhension du fonctionnement global qui te permettra ensuite de créer tes propres pages, tes graphiques et ton calculateur de façon autonome.
