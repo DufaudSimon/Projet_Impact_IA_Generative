@@ -49,13 +49,6 @@ REFS = {
         "https://www.iea.org/news/ai-is-set-to-drive-surging-electricity-demand-from-data-centres-while-offering-the-potential-to-transform-how-the-energy-sector-works"),
 }
 
-# Sources de l'ancienne version, à renuméroter pour les pages « La requête » et « Calculateur »
-REFS_PAGES_SUIVANTES = {
-    "Google": ("Data Center Dynamics, « Google: median Gemini prompt uses 0.24 watt-hours… » (méthodologie Google, 2025)",
-               "https://www.datacenterdynamics.com/en/news/google-median-gemini-prompt-uses-024-watt-hours-of-power-and-consumes-026ml-of-water/"),
-    "Mistral": ("Mistral AI, « Our contribution to a global environmental standard for AI » (analyse de cycle de vie, 2025)",
-                "https://mistral.ai/news/our-contribution-to-a-global-environmental-standard-for-ai"),
-}
 
 # Valeurs affichées -> toutes issues des sources ci-dessus (numéro entre crochets)
 DC_2024_TWH = 415       # [5]
@@ -92,9 +85,37 @@ ICON = {
                     '<path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>'),
     "spark": svg_uri('<path d="M12 3l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/>'),
 }
-LOGO = svg_uri('<circle cx="20" cy="20" r="18"/><circle cx="14" cy="25" r="2"/>'
-               '<circle cx="26" cy="14" r="2"/><path d="M15.4 23.6L24.6 15.4"/>',
-               view="0 0 40 40", width=1.5)
+
+LOGO = svg_uri(
+    # Cercle extérieur agrandi
+    '<circle cx="24" cy="24" r="23" '
+    'fill="none" stroke="currentColor" stroke-width="1.5"/>'
+    '<g fill="none" stroke="currentColor" '
+    'stroke-width="1.8" stroke-linecap="round" '
+    'stroke-linejoin="round">'
+    # Hémisphère gauche
+    '<path d="M23 10 C19 5 12 8 13 14 '
+    'C6 14 7 22 12 25 C7 30 12 37 19 34 '
+    'C21 37 24 35 24 31 L24 14 Z"/>'
+    # Hémisphère droit
+    '<path d="M25 10 C29 5 36 8 35 14 '
+    'C42 14 41 22 36 25 C41 30 36 37 29 34 '
+    'C27 37 24 35 24 31 L24 14 Z"/>'
+    # Circuits internes
+    '<path d="M13 18 H18 V23 H23 '
+    'M12 28 H17 V32 M35 18 H30 V23 H25 '
+    'M36 28 H31 V32"/>'
+    '</g>'
+    '<g fill="currentColor">'
+    '<circle cx="18" cy="18" r="1.8"/>'
+    '<circle cx="17" cy="28" r="1.8"/>'
+    '<circle cx="30" cy="18" r="1.8"/>'
+    '<circle cx="31" cy="28" r="1.8"/>'
+    '</g>',
+    view="0 0 48 48",
+    width=1.8
+)
+
 
 
 # --------------------------------------------------------------------------- #
