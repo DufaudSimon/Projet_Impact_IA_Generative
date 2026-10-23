@@ -37,27 +37,19 @@ NAV = [
 # 2. SOURCES (numérotation utilisée dans l'interface et dans SOURCES.md)
 # --------------------------------------------------------------------------- #
 REFS = {
-    1: ("Microsoft AI Economy Institute, « The continued state of global AI diffusion in 2026 » (T2 2026, 21 sept. 2026)",
+    1: ("Microsoft AI Economy Institute, « The continued state of global AI diffusion in 2026 » (21 sept. 2026)",
         "https://blogs.microsoft.com/on-the-issues/2026/09/21/the-continued-state-of-global-ai-diffusion-in-2026/"),
-    2: ("Microsoft AI Economy Institute, « Global AI Adoption in 2025 — A Widening Digital Divide » (S2 2025, janv. 2026)",
-        "https://www.microsoft.com/en-us/research/wp-content/uploads/2026/01/Microsoft-AI-Diffusion-Report-2025-H2.pdf"),
-    3: ("Microsoft, « The state of global AI diffusion in 2026 » (T1 2026, 7 mai 2026)",
-        "https://blogs.microsoft.com/on-the-issues/2026/05/07/the-state-of-global-ai-diffusion-in-2026/"),
-    4: ("OCDE, « AI use by individuals surges across the OECD as adoption by firms continues to expand » (janv. 2026)",
-        "https://www.oecd.org/en/about/news/announcements/2026/01/ai-use-by-individuals-surges-across-the-oecd-as-adoption-by-firms-continues-to-expand.html"),
-    5: ("Arcep / CREDOC, « Baromètre du numérique, édition 2026 » (enquête de juin 2025, population de 12 ans et plus)",
+    2: ("Arcep / CREDOC, « Baromètre du numérique, édition 2026 » (enquête de juin 2025, 12 ans et plus)",
         "https://www.arcep.fr/cartes-et-donnees/nos-publications-chiffrees/barometre-du-numerique/le-barometre-du-numerique-edition-2026.html"),
-    6: ("Eurostat, « Use of artificial intelligence in enterprises » (Statistics Explained, données extraites en déc. 2025 ; base isoc_eb_ai)",
+    3: ("Eurostat, « Use of artificial intelligence in enterprises » (données extraites en déc. 2025)",
         "https://ec.europa.eu/eurostat/statistics-explained/index.php?title=Use_of_artificial_intelligence_in_enterprises"),
-    7: ("Insee Première, « Les technologies de l'information et de la communication dans les entreprises en 2025 »",
+    4: ("Insee Première, « Les TIC dans les entreprises en 2025 »",
         "https://www.insee.fr/fr/statistiques/9025878"),
-    8: ("Stanford HAI, « AI Index Report 2026 », chapitre 4 « Economy » (avril 2026)",
-        "https://hai.stanford.edu/assets/files/ai_index_report_2026_chapter_4_economy.pdf"),
-    9: ("IEA, « Energy and AI » (communiqué, avril 2025)",
+    5: ("IEA, « Energy and AI » (communiqué, avril 2025)",
         "https://www.iea.org/news/ai-is-set-to-drive-surging-electricity-demand-from-data-centres-while-offering-the-potential-to-transform-how-the-energy-sector-works"),
 }
 
-# Sources de l'ancienne version de la page 1, à renuméroter quand les pages « La requête » et « Calculateur » seront rédigées
+# Sources de l'ancienne version, à renuméroter pour les pages « La requête » et « Calculateur »
 REFS_PAGES_SUIVANTES = {
     "Google": ("Data Center Dynamics, « Google: median Gemini prompt uses 0.24 watt-hours… » (méthodologie Google, 2025)",
                "https://www.datacenterdynamics.com/en/news/google-median-gemini-prompt-uses-024-watt-hours-of-power-and-consumes-026ml-of-water/"),
@@ -66,25 +58,8 @@ REFS_PAGES_SUIVANTES = {
 }
 
 # Valeurs affichées -> toutes issues des sources ci-dessus (numéro entre crochets)
-# Part de la population de 15 à 64 ans utilisant l'IA générative (%), télémétrie Microsoft [1][2][3]
-WORLD_PERIODS = ["S1 2025", "S2 2025", "T1 2026", "T2 2026"]
-WORLD = {
-    "Monde":        [15.1, 16.3, 17.8, 18.8],
-    "Pays du Nord": [22.9, 24.7, 27.5, 28.8],
-    "Pays du Sud":  [13.1, 14.1, 15.4, 16.2],
-}
-FR_MICROSOFT = 44.0     # % France, S2 2025, données Microsoft reprises par Stanford [8]
-FR_ARCEP = 48           # % population française de 12 ans et plus, enquête juin 2025 [5]
-# Entreprises de 10 personnes ou plus utilisant au moins une technologie d'IA (%)
-EU_FIRMS = {2023: 8.1, 2024: 13.5, 2025: 20.0}   # Eurostat [6] (2025 : 19,95 % avant arrondi)
-FR_FIRMS = {2023: 6, 2024: 10, 2025: 18}         # Insee [7], arrondis à l'unité
-EU_SIZE = {"10 à 49 salariés": 17.0, "50 à 249": 30.4, "250 ou plus": 55.0}   # UE 2025 [6]
-# Investissement mondial des entreprises dans l'IA, en milliards de dollars [8]
-INVEST_YEARS = list(range(2013, 2026))
-INVEST_BN = [14.57, 19.04, 25.43, 33.82, 53.72, 79.62, 103.27, 221.87,
-             360.73, 253.25, 201.0, 253.02, 581.69]
-DC_2024_TWH = 415       # [9]
-DC_2030_TWH = 945       # [9]
+DC_2024_TWH = 415       # [5]
+DC_2030_TWH = 945       # [5]
 # Pour les pages suivantes (non affichées sur la page 1)
 CO2_GOOGLE_G = 0.03     # g CO2e / requête médiane Gemini
 CO2_MISTRAL_G = 1.14    # g CO2e / réponse de 400 tokens
@@ -136,80 +111,13 @@ def style(fig, h=340):
     return fig
 
 
-def pct(v):
-    return fr(v, 0 if float(v).is_integer() else 1) + " %"
-
-
-def legend_h():
-    return dict(orientation="h", y=-0.2, bgcolor="rgba(0,0,0,0)")
-
-
-def fig_world_trend():
-    colors = {"Monde": C["accent"], "Pays du Nord": C["blue"], "Pays du Sud": C["warn"]}
-    fig = go.Figure()
-    for name, vals in WORLD.items():
-        fig.add_trace(go.Scatter(
-            x=WORLD_PERIODS, y=vals, name=name, mode="lines+markers+text",
-            line=dict(color=colors[name], width=3), marker=dict(size=8),
-            text=[pct(v) for v in vals],
-            textposition="bottom center" if name == "Pays du Sud" else "top center"))
-    fig.update_yaxes(range=[0, 35], title="% de la population de 15 à 64 ans")
-    fig.update_layout(title="Utilisateurs d'IA générative dans le monde [1][2][3]", legend=legend_h())
-    return style(fig)
-
-
-def fig_sources_compare():
-    labels = ["Monde<br>(Microsoft, T2 2026)", "France<br>(Microsoft, S2 2025)",
-              "France<br>(Arcep-CREDOC, 2025)"]
-    vals = [WORLD["Monde"][-1], FR_MICROSOFT, FR_ARCEP]
-    fig = go.Figure(go.Bar(x=labels, y=vals, marker_color=[C["accent"], C["blue"], C["blue"]],
-                           text=[pct(v) for v in vals], textposition="outside"))
-    fig.update_yaxes(range=[0, 60], title="% de la population")
-    fig.update_layout(title="Deux méthodes, un ordre de grandeur proche pour la France [1][5][8]")
-    return style(fig)
-
-
-def fig_firms_trend():
-    years = ["2023", "2024", "2025"]
-    fig = go.Figure()
-    for name, data, col in (("Union européenne [6]", EU_FIRMS, C["blue"]),
-                            ("France [7]", FR_FIRMS, C["accent"])):
-        vals = [data[int(y)] for y in years]
-        fig.add_trace(go.Bar(x=years, y=vals, name=name, marker_color=col,
-                             text=[pct(v) for v in vals], textposition="outside"))
-    fig.update_yaxes(range=[0, 25], title="% des entreprises")
-    fig.update_layout(barmode="group", legend=legend_h(),
-                      title="Entreprises de 10 personnes ou plus utilisant l'IA [6][7]")
-    return style(fig)
-
-
-def fig_firms_size():
-    labels, vals = list(EU_SIZE), list(EU_SIZE.values())
-    fig = go.Figure(go.Bar(x=labels, y=vals, marker_color=[C["blue"], C["blue"], C["accent"]],
-                           text=[pct(v) for v in vals], textposition="outside"))
-    fig.update_yaxes(range=[0, 65], title="% des entreprises")
-    fig.update_layout(title="Usage de l'IA selon la taille de l'entreprise, UE 2025 [6]")
-    return style(fig)
-
-
-def fig_invest():
-    n = len(INVEST_YEARS)
-    fig = go.Figure(go.Bar(
-        x=[str(y) for y in INVEST_YEARS], y=INVEST_BN,
-        marker_color=[C["accent"]] * (n - 1) + [C["warn"]],
-        text=[""] * (n - 1) + [f"{fr(INVEST_BN[-1], 1)} Md$"], textposition="outside"))
-    fig.update_yaxes(range=[0, 680], title="milliards de dollars")
-    fig.update_layout(title="Investissement mondial des entreprises dans l'IA [8]")
-    return style(fig)
-
-
 def fig_dc_demand():
     fig = go.Figure(go.Bar(
         x=["2024", "2030 (projection IEA)"], y=[DC_2024_TWH, DC_2030_TWH],
         marker_color=[C["accent"], C["warn"]],
         text=[f"{DC_2024_TWH} TWh", f"{DC_2030_TWH} TWh"], textposition="outside"))
     fig.update_yaxes(range=[0, 1100], title="TWh par an")
-    fig.update_layout(title="Électricité des datacenters dans le monde [9]")
+    fig.update_layout(title="Électricité des datacenters dans le monde [5]")
     return style(fig)
 
 
@@ -242,11 +150,8 @@ def sources_block():
     return html.Div([
         html.H5("Sources"),
         html.Ul(items, style={"listStyle": "none", "paddingLeft": 0}),
-        html.P("Valeurs reprises telles quelles des sources, arrondies à l'unité ou à une décimale. "
-               "Les mesures d'adoption ne sont pas directement comparables : télémétrie Microsoft [1][2][3], "
-               "enquêtes auprès des ménages [4][5], enquêtes auprès des entreprises [6][7], "
-               "enquête de cabinet de conseil [8]. Les chiffres de 2030 [9] sont des projections. "
-               "Sources consultées et vérifiées le 23 octobre 2026. Détails dans SOURCES.md.")
+        html.P("Valeurs reprises telles quelles des sources (arrondies). Les chiffres de 2030 sont des "
+               "projections. Sources vérifiées le 23 octobre 2026. Détails dans SOURCES.md.")
     ], className="sources")
 
 
@@ -291,9 +196,8 @@ def hero():
         html.Div([
             eyebrow("01", "COMPRENDRE L'IA"),
             html.H1(["Une requête.", html.Span("Des machines.", className="g")], className="h-big"),
-            html.P("En moins de quatre ans, l'IA générative est passée de la curiosité à l'usage courant. "
-                   "Mesurons son essor avec des sources officielles, puis suivons le parcours d'une question "
-                   "et les ressources matérielles qui se cachent derrière la réponse.", className="lead"),
+            html.P("Suivez le parcours d'une question posée à une IA générative et découvrez "
+                   "les ressources matérielles qui se cachent derrière la réponse.", className="lead"),
             html.Div([dcc.Link(["Suivre une requête ", html.Span("→")], href="/requete", className="btn"),
                       dcc.Link("Tester le calculateur", href="/calculateur", className="btn ghost")],
                      className="btns"),
@@ -322,106 +226,57 @@ def page_1():
         ], className="sec"),
 
         html.Div([
-            html.H2("Combien de personnes utilisent l'IA générative ?"),
-            html.P("Il n'existe pas de mesure unique : chaque organisme observe un périmètre différent. "
-                   "Voici les plus solides, du monde jusqu'à la France.", className="lead"),
+            html.H2("Un essor très rapide"),
             html.Div([
-                kpi("18,8 %", "Population mondiale de 15 à 64 ans utilisant l'IA générative, juin 2026",
-                    "Près d'une personne sur cinq ; 16,3 % fin 2025 [1][2]"),
-                kpi("28,8 % vs 16,2 %", "Pays du Nord vs pays du Sud, 2e trimestre 2026",
-                    "Un écart de 12,6 points, qui continue de se creuser [1]"),
-                kpi("> 1/3", "Individus des pays de l'OCDE utilisant l'IA générative en 2025",
-                    "Environ 3 étudiants de 16 ans et plus sur 4 [4]"),
-                kpi("48 %", "Population française de 12 ans et plus, enquête de juin 2025",
-                    "+15 points en un an [5]"),
+                kpi("18,8 %", "des 15-64 ans dans le monde ont utilisé une IA générative en juin 2026",
+                    "Estimation Microsoft à partir de données d'usage anonymisées : près d'une personne sur cinq [1]"),
+                kpi("48 %", "des Français de 12 ans et plus déclarent utiliser une IA générative, "
+                    "au travail ou dans la vie privée",
+                    "Enquête Arcep/CREDOC de juin 2025 (4 145 personnes). 33 % en 2024, 20 % en 2023 [2]"),
+                kpi("20 %", "des entreprises de l'UE de 10 personnes ou plus utilisent au moins une technologie d'IA, 2025",
+                    "Toute l'IA, pas seulement générative. 13,5 % en 2024, 8,1 % en 2023 [3]"),
+                kpi("18 %", "des entreprises françaises de 10 salariés ou plus utilisent au moins une technologie d'IA, 2025",
+                    "Même définition. 10 % en 2024, 6 % en 2023 : usage triplé en deux ans [4]"),
             ], className="kpis"),
-            html.Div([
-                html.Div(dcc.Graph(figure=fig_world_trend(), config={"displayModeBar": False}), className="col"),
-                html.Div(dcc.Graph(figure=fig_sources_compare(), config={"displayModeBar": False}), className="col"),
-            ], className="row"),
-            callout("Attention aux chiffres « mondiaux ». Le « 53 % d'adoption en trois ans » souvent cité depuis "
-                    "le rapport Stanford AI Index 2026 provient d'enquêtes auprès des 18-64 ans aux États-Unis, "
-                    "comparées aux enquêtes américaines sur l'ordinateur et Internet [8] : ce n'est pas une mesure "
-                    "de la population mondiale. La mesure mondiale de référence est celle de Microsoft (18,8 %), "
-                    "construite à partir de données d'usage anonymisées et redressées selon le parc d'appareils, "
-                    "l'accès à Internet et la population. Microsoft prévoit d'élargir sa mesure aux nouveaux outils, "
-                    "ce qui devrait faire monter ce chiffre, surtout en Chine [1].", "warn"),
+            callout("Comment lire ces chiffres : les deux premiers concernent des personnes, les deux derniers des "
+                    "entreprises. Chaque source a sa propre définition de l'« utilisateur » : on peut les rapprocher "
+                    "pour les ordres de grandeur, pas à l'unité près.", "info"),
         ], className="sec"),
 
         html.Div([
-            html.H2("Et du côté des entreprises ?"),
-            html.P("Les statistiques officielles interrogent un échantillon représentatif d'entreprises. "
-                   "Elles portent sur l'ensemble des technologies d'IA (analyse de texte, génération de contenu, "
-                   "analyse de données…), pas uniquement sur l'IA générative.", className="lead"),
-            html.Div([
-                kpi("20 %", "Entreprises de l'UE (10 personnes ou plus) utilisant au moins une technologie d'IA, 2025",
-                    "13,5 % en 2024 et 8,1 % en 2023 [6]"),
-                kpi("18 %", "Entreprises françaises (10 salariés ou plus), 2025",
-                    "6 % en 2023, 10 % en 2024 : usage triplé en deux ans [7]"),
-                kpi("55 % vs 17 %", "Grandes entreprises vs petites entreprises (UE, 2025)",
-                    "250 salariés ou plus vs 10 à 49 ; 30 % pour les moyennes [6]"),
-                kpi("62,5 %", "Secteur de l'information et de la communication (UE, 2025)",
-                    "Contre 10,8 % dans la construction [6]"),
-            ], className="kpis"),
-            html.Div([
-                html.Div(dcc.Graph(figure=fig_firms_trend(), config={"displayModeBar": False}), className="col"),
-                html.Div(dcc.Graph(figure=fig_firms_size(), config={"displayModeBar": False}), className="col"),
-            ], className="row"),
-            callout("Pourquoi 20 % ici et 88 % ailleurs ? Le rapport Stanford cite 88 % d'organisations utilisant "
-                    "l'IA dans au moins une fonction en 2025 [8] : c'est une enquête auto-déclarée, que Stanford "
-                    "lui-même invite à lire comme indicative. Eurostat interroge 157 000 des 1,53 million "
-                    "d'entreprises de l'UE, dont 83 % de petites [6]. Deux périmètres, deux résultats : "
-                    "il faut toujours lire la définition avant de comparer.", "warn"),
-            callout("Le principal frein : parmi les entreprises qui avaient envisagé l'IA sans l'utiliser, "
-                    "71 % citent le manque de compétences, 53 % l'incertitude juridique et 49 % la protection "
-                    "des données [6].", "info"),
-        ], className="sec"),
-
-        html.Div([
-            html.H2("Un écosystème : des assistants et des modèles"),
-            html.P("Derrière l'expression « IA générative » se cachent plusieurs entreprises, plusieurs produits "
-                   "et, pour chacun, plusieurs modèles. Les pages suivantes comparent ces modèles ; "
-                   "voici d'abord les deux grandes familles.", className="lead"),
+            html.H2("Plusieurs IA, plusieurs modèles"),
+            html.P("Derrière l'IA générative se trouvent plusieurs entreprises, plusieurs produits et, pour chacun, "
+                   "plusieurs modèles. Les pages suivantes les comparent.", className="lead"),
             html.Div([
                 card("Des assistants prêts à l'emploi",
-                     "ChatGPT (OpenAI), Gemini (Google) et Claude (Anthropic) sont proposés comme services en ligne : "
-                     "démarrage très simple, hébergement et maintenance assurés par le fournisseur, "
-                     "et accès possible par API pour créer ses propres outils.", "ChatGPT · Gemini · Claude"),
+                     "Services en ligne proposés par OpenAI, Google et Anthropic : simples à utiliser, "
+                     "hébergés et maintenus par le fournisseur.", "ChatGPT · Gemini · Claude"),
                 card("Des modèles à récupérer",
-                     "Llama (Meta) et Gemma (Google) sont conçus pour être téléchargés et intégrés à ses propres "
-                     "outils, parfois exécutés en local. Plus de contrôle sur les données et la personnalisation, "
-                     "mais installation et maintenance à votre charge.", "Llama · Gemma"),
-                card("Plusieurs modèles par famille",
-                     "Chaque famille compte plusieurs versions et tailles de modèles. Leur performance et leur "
-                     "consommation de ressources dépendent de la version, de la taille, du matériel et de la tâche : "
-                     "c'est ce que les pages suivantes analysent.", "Pages suivantes"),
+                     "Modèles publiés par Meta et Google pour être téléchargés et intégrés à ses propres outils, "
+                     "parfois en local. Plus de contrôle, mais installation et maintenance à votre charge.",
+                     "Llama · Gemma"),
             ], className="grid3"),
-            callout("Un modèle local n'est pas forcément moins performant ni automatiquement plus sécurisé : "
-                    "tout dépend de la version, de la taille du modèle, du matériel et de la configuration. "
-                    "Un assistant en ligne peut, de son côté, combiner son modèle avec des outils externes.", "info"),
         ], className="sec"),
 
         html.Div([
-            html.H2("Un essor rapide, des ressources bien réelles"),
+            html.H2("Un essor qui a un coût matériel"),
             callout("Problématique — Face à l'opacité du secteur de l'IA générative sur son impact "
                     "environnemental, comment mobiliser les données existantes pour éclairer le débat "
                     "public et permettre des choix avisés ?", "question"),
             html.Div([
-                kpi(f"{fr(INVEST_BN[-1], 1)} Md$", "Investissement mondial des entreprises dans l'IA, 2025",
-                    "+129,9 % en un an ; 170,9 Md$ de financements privés visent l'IA générative [8]"),
-                kpi(f"{DC_2024_TWH} → {DC_2030_TWH} TWh", "Électricité des datacenters, 2024 → 2030 (projection)",
-                    "≈ 1,5 % de l'électricité mondiale en 2024 ; plus que le Japon aujourd'hui en 2030 [9]"),
-                kpi("×4", "Demande des datacenters optimisés pour l'IA d'ici 2030",
-                    "Projection : l'IA est le principal moteur de la hausse [9]"),
-            ], className="kpis"),
-            html.Div([
-                html.Div(dcc.Graph(figure=fig_invest(), config={"displayModeBar": False}), className="col"),
+                html.Div(html.Div([
+                    kpi(f"{DC_2024_TWH} → {DC_2030_TWH} TWh",
+                        "d'électricité pour les datacenters du monde entier, en 2024 puis en 2030 (projection)",
+                        "Tous usages confondus, pas seulement l'IA. ≈ 1,5 % de l'électricité mondiale en 2024 ; "
+                        "en 2030, un peu plus que la consommation actuelle du Japon [5]"),
+                    kpi("> ×4", "pour l'électricité demandée par les datacenters conçus pour l'IA d'ici 2030 (projection)",
+                        "L'IA est le principal moteur de la hausse [5]"),
+                ], className="kpis"), className="col"),
                 html.Div(dcc.Graph(figure=fig_dc_demand(), config={"displayModeBar": False}), className="col"),
             ], className="row"),
-            callout("L'adoption se mesure avec des statistiques publiques ; l'électricité de 2030 reste une "
-                    "projection ; et l'impact environnemental d'une requête n'est connu que par des déclarations "
-                    "d'entreprises dont les méthodes ne sont pas comparables. C'est tout l'enjeu des pages suivantes.",
-                    "warn"),
+            callout("L'adoption se mesure avec des statistiques publiques ; l'impact environnemental d'une requête, "
+                    "lui, repose surtout sur des déclarations d'entreprises aux méthodes non comparables. "
+                    "C'est tout l'enjeu des pages suivantes.", "warn"),
         ], className="sec"),
 
         html.Div([
