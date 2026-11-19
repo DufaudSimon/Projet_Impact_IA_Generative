@@ -1,0 +1,28 @@
+indicateur,valeur_basse,valeur_haute,unite,annee,perimetre,source
+"Conso. data centers, sites dédiés",4.0,5.0,TWh,2024,"RTE, sites dédiés, hors salles internes","RTE, Bilan prévisionnel 2025 (déc. 2025)"
+"Conso. data centers, sites dédiés",10.0,15.0,TWh,2030,"10 si 30 % des projets aboutissent, 15 si 60 %","RTE, Bilan prévisionnel 2025"
+"Conso. data centers, sites dédiés",21.0,32.0,TWh,2035,selon les 2 trajectoires de décarbonation,"RTE, Bilan prévisionnel 2025"
+"Conso. data centers, périmètre large",10.0,10.0,TWh,2026,"≈ 2 % de la consommation, inclut les salles internes",RTE (page grand public)
+"Conso. data centers, périmètre large",23.0,28.0,TWh,2035,périmètre large RTE,RTE (page grand public)
+Consommation électrique France,451.0,451.0,TWh,2025,consommation totale,"RTE, Bilan électrique 2025"
+Consommation électrique France,470.0,510.0,TWh,2030,trajectoire lente (470) / rapide (510),"RTE, Bilan prévisionnel 2025"
+Consommation électrique France,505.0,580.0,TWh,2035,trajectoire lente (505) / rapide (580),"RTE, Bilan prévisionnel 2025"
+"Parc nucléaire, puissance installée",63.0,63.0,GW,2025,"57 réacteurs, 18 centrales (≈ 1,1 GW par réacteur)",EDF / RTE
+Production nucléaire,373.0,373.0,TWh,2025,"68,1 % de la production","RTE, Bilan électrique 2025"
+Raccordement réservé data centers,18.0,18.0,GW,2026,≈ 80 projets (mai 2026) ; 5 GW fin 2024,RTE (via presse)
+Puissance demandée data centers,28.6,28.6,GW,2026,tous stades confondus,RTE (via presse)
+Intensité carbone électricité : Norvège,28.1,28.1,gCO2e/kWh,2025,"cycle de vie, production",Ember 2026 / Our World in Data
+Intensité carbone électricité : France,41.4,41.4,gCO2e/kWh,2025,"cycle de vie (RTE : 19,6 g en émissions directes)",Ember 2026 / Our World in Data
+Intensité carbone électricité : Allemagne,330.0,330.0,gCO2e/kWh,2025,"cycle de vie, production",Ember 2026 / Our World in Data
+Intensité carbone électricité : États-Unis,384.0,384.0,gCO2e/kWh,2025,"cycle de vie, moyenne nationale",Ember 2026 / Our World in Data
+Intensité carbone électricité : Monde,458.0,458.0,gCO2e/kWh,2025,cycle de vie,Ember 2026 / Our World in Data
+Intensité carbone électricité : Pologne,589.0,589.0,gCO2e/kWh,2025,"cycle de vie, production",Ember 2026 / Our World in Data
+"Llama 3.1 405B, entraînement",30.84,30.84,M heures GPU,2024,"H100, 700 W par GPU","Meta, fiche du modèle"
+"Llama 3.1 405B, entraînement",8930.0,8930.0,tCO2e,2024,émissions location-based (market-based : 0),"Meta, fiche du modèle"
+"BLOOM 176B, entraînement",50.5,50.5,tCO2e,2022,"dont dynamique 24,7 / veille 14,6 / fabrication 11,2","Luccioni et al., JMLR 2023"
+"BLOOM 176B, inférence (API)",19.0,19.0,kgCO2e/jour,2022,"mesure sur 18 jours, GCP us-central1","Luccioni et al., JMLR 2023"
+"Mistral Large 2, ACV",20.4,20.4,ktCO2e,2025,entraînement + 18 mois d'usage (non séparés),Mistral AI / Carbone 4 / ADEME
+"Mistral Large 2, part entraînement+usage",85.5,85.5,% des GES,2025,"le matériel (fabrication, fin de vie) ≈ 11 %",Mistral AI (via presse)
+"Mistral Large 2, 1 réponse de 400 tokens",1.14,1.14,gCO2e,2025,"impact marginal de l'inférence, ACV (45 mL d'eau)",Mistral AI
+"Gemini Apps, 1 prompt texte médian",0.03,0.03,gCO2e,2025,"0,24 Wh, 0,26 mL ; market-based ; non vérifié par un tiers","Google, août 2025"
+Eau prélevée par les data centers FR,575000.0,575000.0,m3,2024,"23 opérateurs (~160 sites), presque tout en eau potable",Arcep (via Projet Celsius)
